@@ -74,6 +74,8 @@ abstract class BaseCrudController extends Controller
             }
         }
 
+        $this->filtrarListado($request, $consulta);
+
         if ($request->filled('desde')) {
             $consulta->whereDate('created_at', '>=', $request->query('desde'));
         }
@@ -166,6 +168,14 @@ abstract class BaseCrudController extends Controller
     }
 
     // ------------------------------------------------------------------ ganchos
+
+    /**
+     * Filtros propios de un listado (ademas de `$filtrables`). Por defecto
+     * nada; los hijos lo sobreescriben sin duplicar `listar()`.
+     */
+    protected function filtrarListado(Request $request, Builder $consulta): void
+    {
+    }
 
     protected function antesDeCrear(Request $request, array $datos): array
     {

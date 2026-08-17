@@ -4,6 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Toma;
 use App\Models\User;
+use App\Support\Alcance;
+use App\Support\Tomas;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -33,6 +37,52 @@ class TomaController extends BaseCrudController
             'tomadaEn' => ['nullable', 'date'],
             'estado' => ['sometimes', 'in:pendiente,tomada,omitida'],
         ];
+    }
+
+    /**
+     * `GET /tomas?dia=Y-m-d&zona=<IANA>[&pacienteId=]`: antes de listar,
+     * materializa las tomas pendientes de ese dia para el paciente objetivo
+     * (el propio, o el `pacienteId` visible para doctor/admin) y filtra por el
+     * rango del dia en esa zona. Sin `dia`, hoy; sin `zona`, la de la app.
+     */
+    public function listar(Request $request): JsonResponse
+    {
+        $this->autorizarLectura($request);
+
+        $request->validate([
+            'dia' => ['nullable', 'date_format:Y-m-d'],
+            'zona' => ['nullable', 'timezone:all'],
+            'pacienteId' => ['nullable', 'integer'],
+        ]);
+
+        [$inicio, $zona] = $this->rangoDelDia($request);
+
+        $pacienteId = Alcance::pacienteObjetivo(
+            $request->user(),
+            $request->filled('pacienteId') ? (int) $request->query('pacienteId') : null,
+        );
+
+        if ($pacienteId !== null) {
+            Tomas::materializar($pacienteId, $inicio, $zona);
+        }
+
+        return parent::listar($request);
+    }
+
+    protected function filtrarListado(Request $request, Builder $consulta): void
+    {
+        [$inicio] = $this->rangoDelDia($request);
+
+        $consulta->whereBetween('programadaEn', [$inicio->utc(), $inicio->endOfDay()->utc()]);
+    }
+
+    /** @return array{0: CarbonImmutable, 1: string} inicio del dia en la zona pedida, y la zona. */
+    private function rangoDelDia(Request $request): array
+    {
+        $zona = (string) $request->query('zona', config('app.timezone'));
+        $inicio = CarbonImmutable::parse((string) $request->query('dia', 'today'), $zona)->startOfDay();
+
+        return [$inicio, $zona];
     }
 
     public function marcar(Request $request, int $id): JsonResponse

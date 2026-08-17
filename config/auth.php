@@ -114,4 +114,18 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pacientes anonimos
+    |--------------------------------------------------------------------------
+    |
+    | Dias sin actividad tras los cuales `usuarios:purgar-anonimos` da de baja
+    | a un paciente que entro por POST /auth/anonimo y nunca reclamo su cuenta.
+    |
+    */
+
+    'anonimos' => [
+        'dias_vigencia' => (int) env('ANONIMOS_DIAS_VIGENCIA', 30),
+    ],
+
 ];

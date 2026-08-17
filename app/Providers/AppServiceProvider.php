@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Support\Auth0\VerificadorAuth0;
+use App\Support\Auth0\VerificadorAuth0Remoto;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\ServiceProvider;
 
@@ -13,8 +15,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(
-            \App\Support\Auth0\VerificadorAuth0::class,
-            \App\Support\Auth0\VerificadorAuth0Remoto::class,
+            VerificadorAuth0::class,
+            VerificadorAuth0Remoto::class,
         );
     }
 

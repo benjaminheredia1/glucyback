@@ -13,7 +13,9 @@ use Tests\TestCase;
 class VerificadorAuth0RemotoTest extends TestCase
 {
     private const DOMINIO = 'glucy.us.auth0.com';
+
     private const AUDIENCIA = 'https://api.glucy.local';
+
     private const KID = 'clave-de-prueba';
 
     private OpenSSLAsymmetricKey $clavePrivada;

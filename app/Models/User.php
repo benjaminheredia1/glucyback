@@ -17,7 +17,9 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     public const ROL_ADMIN = 'admin';
+
     public const ROL_DOCTOR = 'doctor';
+
     public const ROL_PACIENTE = 'paciente';
 
     protected $fillable = [

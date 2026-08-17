@@ -4,6 +4,7 @@ namespace App\Support\Auth0;
 
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -99,7 +100,7 @@ class VerificadorAuth0Remoto implements VerificadorAuth0
         }
     }
 
-    /** @return array<string,\Firebase\JWT\Key> */
+    /** @return array<string,Key> */
     private function clavesPublicas(string $dominio): array
     {
         try {

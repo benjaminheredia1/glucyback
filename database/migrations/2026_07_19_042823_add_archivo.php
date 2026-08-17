@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create("archivo", function (Blueprint $table) { 
+        Schema::create('archivo', function (Blueprint $table) {
             $table->id();
-            $table->string("nombre")->notNullable();
-            $table->string("descripcion")->nullable();
-            $table->string("url")->notNullable();
-            $table->foreignId("usuarioId")->nullable()->constrained('users');
+            $table->string('nombre')->notNullable();
+            $table->string('descripcion')->nullable();
+            $table->string('url')->notNullable();
+            $table->foreignId('usuarioId')->nullable()->constrained('users');
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists("archivo");
+        Schema::dropIfExists('archivo');
     }
 };

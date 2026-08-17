@@ -20,6 +20,8 @@
 - Trabajar en rama `feature/paciente-anonimo` creada desde `main`. Si el árbol tiene cambios ajenos sin commitear (hoy hay: `SolicitudAccesoDoctor*`, `routes/api.php`, `TipoEstudioController.php`), commitearlos o guardarlos con `git stash` **antes** de empezar; este plan no los toca.
 - Bug preexistente, fuera de este plan: `App\Http\Controllers\TipoEstudioController::listar()` redeclara el método con firma incompatible con `BaseCrudController::listar(Request $request): JsonResponse` y provoca un fatal al cargar la clase (`php artisan route:list` falla con "Declaration of App\Http\Controllers\TipoEstudioController::listar..."). Si estorba para verificar rutas, borrar ese override; no lo "arregles" dentro de un commit de este plan.
 - Mensajes de error de la API en español sin tildes, entre comillas simples, igual que los existentes (`'El usuario no tiene perfil de paciente.'`).
+- `bootstrap/app.php` solo renderiza excepciones como JSON cuando la ruta es `api/*` (`shouldRenderJsonWhen`). Cualquier ruta de prueba que espere `assertJsonPath` tiene que colgar de `/api/...`.
+- Dentro de un mismo test, Laravel cachea el usuario que resolvió el guard (`RequestGuard::$user`) entre peticiones. Para cambiar de token o probar un token revocado hay que llamar `$this->app['auth']->forgetGuards()` antes de la siguiente petición (los tests existentes lo evitan usando `actingAs()`).
 - No tocar `Alcance`, `BaseCrudController` ni las reglas de ningún CRUD: el anónimo funciona con lo que ya hay.
 
 ---
@@ -35,7 +37,7 @@
 - Consumes: nada nuevo.
 - Produces: `User::NOMBRE_TEMPORAL` (string `'Paciente'`), `User::esTemporal(): bool`, atributo JSON `esTemporal` (bool) en toda serialización de `User`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `tests/Feature/UsuarioTemporalTest.php`:
 
@@ -94,12 +96,12 @@ class UsuarioTemporalTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+- [x] **Step 2: Correr el test y verificar que falla**
 
 Run: `php artisan test --filter=UsuarioTemporalTest`
 Expected: FAIL — `Undefined constant App\Models\User::NOMBRE_TEMPORAL` (y, si se llegara más lejos, `NOT NULL constraint failed: users.email`).
 
-- [ ] **Step 3: Migración**
+- [x] **Step 3: Migración**
 
 Crear `database/migrations/2026_08_17_100000_make_users_email_nullable.php`:
 
@@ -133,7 +135,7 @@ return new class extends Migration
 };
 ```
 
-- [ ] **Step 4: Modelo**
+- [x] **Step 4: Modelo**
 
 En `app/Models/User.php`, después de `public const ROL_PACIENTE = 'paciente';` agregar:
 
@@ -169,17 +171,17 @@ Al final de la clase, después de `esPaciente()`, agregar:
     }
 ```
 
-- [ ] **Step 5: Correr el test y verificar que pasa**
+- [x] **Step 5: Correr el test y verificar que pasa**
 
 Run: `php artisan test --filter=UsuarioTemporalTest`
 Expected: `"result":"passed"`, 3 tests.
 
-- [ ] **Step 6: Suite completa (regresión por `$appends`)**
+- [x] **Step 6: Suite completa (regresión por `$appends`)**
 
 Run: `php artisan test`
 Expected: `"result":"passed"`. Si algún test viejo compara JSON exacto de un usuario y falla por la clave nueva `esTemporal`, agregar la clave al esperado de ese test (no quitar el `$appends`).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 ./vendor/bin/pint --dirty
@@ -201,7 +203,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `App\Models\User`.
 - Produces: `App\Support\SesionOpcional::usuario(Request $request): ?User` — devuelve el `User` del Bearer; `null` si no hay Bearer; aborta `401` con mensaje `'El token de la sesion no es valido.'` si hay Bearer pero no resuelve.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `tests/Feature/SesionOpcionalTest.php`:
 
@@ -225,15 +227,16 @@ class SesionOpcionalTest extends TestCase
     {
         parent::setUp();
 
-        // Ruta publica de prueba, sin auth:sanctum, igual que /auth/auth0.
-        Route::get('/_prueba/sesion-opcional', fn (Request $request) => response()->json([
+        // Ruta publica de prueba, sin auth:sanctum, igual que /auth/auth0. Bajo
+        // /api porque bootstrap/app.php solo renderiza JSON para api/*.
+        Route::get('/api/_prueba/sesion-opcional', fn (Request $request) => response()->json([
             'id' => SesionOpcional::usuario($request)?->id,
         ]));
     }
 
     public function test_sin_bearer_no_hay_sesion(): void
     {
-        $this->getJson('/_prueba/sesion-opcional')
+        $this->getJson('/api/_prueba/sesion-opcional')
             ->assertOk()
             ->assertJsonPath('id', null);
     }
@@ -244,7 +247,7 @@ class SesionOpcionalTest extends TestCase
         $token = $usuario->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/_prueba/sesion-opcional')
+            ->getJson('/api/_prueba/sesion-opcional')
             ->assertOk()
             ->assertJsonPath('id', $usuario->id);
     }
@@ -254,7 +257,7 @@ class SesionOpcionalTest extends TestCase
     public function test_con_bearer_invalido_responde_401(): void
     {
         $this->withToken('1|token-que-no-existe')
-            ->getJson('/_prueba/sesion-opcional')
+            ->getJson('/api/_prueba/sesion-opcional')
             ->assertUnauthorized()
             ->assertJsonPath('message', 'El token de la sesion no es valido.');
     }
@@ -266,18 +269,18 @@ class SesionOpcionalTest extends TestCase
         $usuario->tokens()->delete();
 
         $this->withToken($token)
-            ->getJson('/_prueba/sesion-opcional')
+            ->getJson('/api/_prueba/sesion-opcional')
             ->assertUnauthorized();
     }
 }
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+- [x] **Step 2: Correr el test y verificar que falla**
 
 Run: `php artisan test --filter=SesionOpcionalTest`
 Expected: FAIL — `Class "App\Support\SesionOpcional" not found`.
 
-- [ ] **Step 3: Implementar el helper**
+- [x] **Step 3: Implementar el helper**
 
 Crear `app/Support/SesionOpcional.php`:
 
@@ -316,12 +319,12 @@ class SesionOpcional
 }
 ```
 
-- [ ] **Step 4: Correr el test y verificar que pasa**
+- [x] **Step 4: Correr el test y verificar que pasa**
 
 Run: `php artisan test --filter=SesionOpcionalTest`
 Expected: `"result":"passed"`, 4 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 ./vendor/bin/pint --dirty
@@ -345,7 +348,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `User::NOMBRE_TEMPORAL`, `User::esTemporal()` (Task 1).
 - Produces: ruta `POST /api/auth/anonimo` → `201 { token, usuario }`; los tests de Task 4 y Task 5 la usan para fabricar anónimos reales.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `tests/Feature/Auth/SesionAnonimaTest.php`:
 
@@ -485,12 +488,12 @@ class SesionAnonimaTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+- [x] **Step 2: Correr el test y verificar que falla**
 
 Run: `php artisan test --filter=SesionAnonimaTest`
 Expected: FAIL — los `postJson('/api/auth/anonimo')` devuelven 404 (`assertCreated` falla) y `test_el_token_de_una_cuenta_real_sigue_caducando_a_las_24_horas` PASA (es regresión; debe seguir pasando al final).
 
-- [ ] **Step 3: Controlador**
+- [x] **Step 3: Controlador**
 
 Crear `app/Http/Controllers/Auth/SesionAnonimaController.php`:
 
@@ -561,7 +564,7 @@ class SesionAnonimaController extends Controller
 }
 ```
 
-- [ ] **Step 4: Ruta**
+- [x] **Step 4: Ruta**
 
 En `routes/api.php`:
 
@@ -581,7 +584,7 @@ Route::post('/auth/anonimo', [SesionAnonimaController::class, 'store'])
     ->name('auth.anonimo');
 ```
 
-- [ ] **Step 5: Eximir al token anónimo de la caducidad global**
+- [x] **Step 5: Eximir al token anónimo de la caducidad global**
 
 En `app/Providers/AppServiceProvider.php`, agregar los `use`:
 
@@ -609,17 +612,17 @@ y dentro de `boot()`, después del bloque `ResetPassword::createUrlUsing(...)`:
         });
 ```
 
-- [ ] **Step 6: Correr el test y verificar que pasa**
+- [x] **Step 6: Correr el test y verificar que pasa**
 
 Run: `php artisan test --filter=SesionAnonimaTest`
 Expected: `"result":"passed"`, 7 tests.
 
-- [ ] **Step 7: Suite completa**
+- [x] **Step 7: Suite completa**
 
 Run: `php artisan test`
 Expected: `"result":"passed"`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 ./vendor/bin/pint --dirty
@@ -641,7 +644,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `SesionOpcional::usuario()` (Task 2), `User::esTemporal()` / `User::NOMBRE_TEMPORAL` (Task 1), `POST /api/auth/anonimo` (Task 3), `App\Support\Auth0\PerfilAuth0(string $sub, ?string $email, bool $emailVerificado, ?string $nombre)` y la interfaz `App\Support\Auth0\VerificadorAuth0` (ya existen).
 - Produces: `POST /api/auth/auth0` con Bearer de anónimo → mismo `users.id` con `email`/`auth0Sub` rellenos; `409` si el correo/sub ya tiene cuenta; `AuditLog` con `accion = 'reclamar'`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `tests/Feature/Auth/ReclamoCuentaAnonimaTest.php`:
 
@@ -668,14 +671,14 @@ class ReclamoCuentaAnonimaTest extends TestCase
         $pacienteId = Paciente::where('usuarioId', $anonimo->id)->sole()->id;
 
         $tipo = TipoEstudio::create(['nombre' => 'HbA1c']);
-        $estudioId = $this->withToken($token)->postJson('/api/estudios-medicos', [
+        $estudioId = $this->conToken($token)->postJson('/api/estudios-medicos', [
             'tipoEstudioId' => $tipo->id,
             'fecha' => now()->toDateString(),
         ])->assertCreated()->json('id');
 
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'Ana@Ejemplo.com', true, 'Ana Ibarra'));
 
-        $respuesta = $this->withToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual']);
+        $respuesta = $this->conToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual']);
 
         $respuesta->assertOk()
             ->assertJsonPath('usuario.id', $anonimo->id)
@@ -690,13 +693,13 @@ class ReclamoCuentaAnonimaTest extends TestCase
         $this->assertSame(1, Paciente::count());
 
         // El estudio subido como anonimo sigue siendo suyo con el token nuevo.
-        $this->withToken($respuesta->json('token'))
+        $this->conToken($respuesta->json('token'))
             ->getJson("/api/estudios-medicos/{$estudioId}")
             ->assertOk()
             ->assertJsonPath('pacienteId', $pacienteId);
 
         // El reclamo cierra la sesion anonima.
-        $this->withToken($token)->getJson('/api/user')->assertUnauthorized();
+        $this->conToken($token)->getJson('/api/user')->assertUnauthorized();
 
         $this->assertDatabaseHas('audit_logs', [
             'usuarioId' => $anonimo->id,
@@ -710,11 +713,11 @@ class ReclamoCuentaAnonimaTest extends TestCase
     {
         [$token] = $this->altaAnonima();
 
-        $this->withToken($token)->patchJson('/api/perfil', ['name' => 'Ana'])->assertOk();
+        $this->conToken($token)->patchJson('/api/perfil', ['name' => 'Ana'])->assertOk();
 
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'ana@ejemplo.com', true, 'Nombre De Google'));
 
-        $this->withToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
+        $this->conToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
             ->assertOk()
             ->assertJsonPath('usuario.name', 'Ana');
     }
@@ -726,14 +729,14 @@ class ReclamoCuentaAnonimaTest extends TestCase
 
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'ana@ejemplo.com', true, 'Ana'));
 
-        $this->withToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
+        $this->conToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
             ->assertStatus(409)
             ->assertJsonPath('message', 'Ya existe una cuenta con este correo. Inicia sesion con ella.');
 
         $this->assertNull($anonimo->fresh()->email);
         $this->assertSame(2, User::count());
         // El anonimo sigue vivo: su token todavia sirve.
-        $this->withToken($token)->getJson('/api/user')->assertOk();
+        $this->conToken($token)->getJson('/api/user')->assertOk();
     }
 
     public function test_si_el_sub_ya_tiene_cuenta_responde_409(): void
@@ -743,7 +746,7 @@ class ReclamoCuentaAnonimaTest extends TestCase
 
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'nueva@ejemplo.com', true, 'Ana'));
 
-        $this->withToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])->assertStatus(409);
+        $this->conToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])->assertStatus(409);
 
         $this->assertNull($anonimo->fresh()->email);
     }
@@ -757,7 +760,7 @@ class ReclamoCuentaAnonimaTest extends TestCase
 
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'ana@ejemplo.com', false, 'Ana'));
 
-        $this->withToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
+        $this->conToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
             ->assertStatus(422)
             ->assertJsonPath('message', 'Auth0 no ha verificado este correo para reclamar la cuenta.');
 
@@ -772,7 +775,7 @@ class ReclamoCuentaAnonimaTest extends TestCase
 
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'ana@ejemplo.com', true, 'Ana'));
 
-        $this->withToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])->assertForbidden();
+        $this->conToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])->assertForbidden();
 
         $this->assertNull($anonimo->fresh()->email);
     }
@@ -781,7 +784,7 @@ class ReclamoCuentaAnonimaTest extends TestCase
     {
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'ana@ejemplo.com', true, 'Ana'));
 
-        $this->withToken('1|token-inexistente')
+        $this->conToken('1|token-inexistente')
             ->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
             ->assertUnauthorized();
 
@@ -796,7 +799,7 @@ class ReclamoCuentaAnonimaTest extends TestCase
 
         $this->fingirPerfil(new PerfilAuth0('auth0|ana', 'ana@ejemplo.com', true, 'Ana'));
 
-        $this->withToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
+        $this->conToken($token)->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
             ->assertOk()
             ->assertJsonPath('usuario.id', $usuario->id);
 
@@ -814,6 +817,18 @@ class ReclamoCuentaAnonimaTest extends TestCase
             ->assertJsonPath('usuario.esTemporal', false);
 
         $this->assertDatabaseHas('audit_logs', ['accion' => 'crear', 'entidad' => 'User']);
+    }
+
+    /**
+     * Manda el Bearer y olvida el usuario que el guard cacheo en la peticion
+     * anterior del mismo test (RequestGuard::$user). Sin esto, un token ya
+     * revocado "seguiria sirviendo" solo en memoria del test.
+     */
+    private function conToken(string $token): static
+    {
+        $this->app['auth']->forgetGuards();
+
+        return $this->withToken($token);
     }
 
     /**
@@ -841,12 +856,12 @@ class ReclamoCuentaAnonimaTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+- [x] **Step 2: Correr el test y verificar que falla**
 
 Run: `php artisan test --filter=ReclamoCuentaAnonimaTest`
 Expected: FAIL. En concreto `test_el_anonimo_reclama_su_cuenta_sobre_la_misma_fila` falla en `assertJsonPath('usuario.id', ...)` (hoy el Bearer se ignora y se crea un segundo usuario), y `test_un_bearer_invalido_responde_401_y_no_crea_nada` recibe 200. Los dos últimos tests (regresión) deben pasar ya.
 
-- [ ] **Step 3: Implementar el reclamo**
+- [x] **Step 3: Implementar el reclamo**
 
 En `app/Http/Controllers/Auth/Auth0SessionController.php`:
 
@@ -983,17 +998,17 @@ use App\Support\SesionOpcional;
  * misma fila en vez de crear un usuario nuevo.
 ```
 
-- [ ] **Step 4: Correr el test y verificar que pasa**
+- [x] **Step 4: Correr el test y verificar que pasa**
 
 Run: `php artisan test --filter=ReclamoCuentaAnonimaTest`
 Expected: `"result":"passed"`, 9 tests.
 
-- [ ] **Step 5: Regresión de Auth0**
+- [x] **Step 5: Regresión de Auth0**
 
 Run: `php artisan test --filter="Auth0LoginTest|PrecalificacionVincularTest|UsuarioAuth0Test"`
 Expected: `"result":"passed"`. Estos tests entran sin Bearer y no deben cambiar.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 ./vendor/bin/pint --dirty
@@ -1015,7 +1030,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `SesionOpcional::usuario()` (Task 2), `Alcance::pacienteId(User): ?int` (existe), `POST /api/auth/anonimo` (Task 3), `Database\Seeders\PreguntaPrecalificacionSeeder` (existe; siembra 9 preguntas activas, la `q1` alarma con `'no'`, las demás con `'si'`).
 - Produces: `POST /api/precalificacion/evaluar` con Bearer de paciente guarda `pacienteId` propio e ignora el del cuerpo.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `tests/Feature/PrecalificacionEvaluarAnonimoTest.php`:
 
@@ -1103,12 +1118,12 @@ class PrecalificacionEvaluarAnonimoTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+- [x] **Step 2: Correr el test y verificar que falla**
 
 Run: `php artisan test --filter=PrecalificacionEvaluarAnonimoTest`
 Expected: FAIL — el primer test guarda `pacienteId` del otro (assertJsonPath falla) y el tercero recibe 201 en vez de 401. El segundo pasa (regresión).
 
-- [ ] **Step 3: Implementar**
+- [x] **Step 3: Implementar**
 
 En `app/Http/Controllers/PrecalificacionController.php`:
 
@@ -1143,17 +1158,17 @@ use App\Support\SesionOpcional;
      * Si viene el Bearer de un paciente, el resultado se ata a ese paciente.
 ```
 
-- [ ] **Step 4: Correr el test y verificar que pasa**
+- [x] **Step 4: Correr el test y verificar que pasa**
 
 Run: `php artisan test --filter=PrecalificacionEvaluarAnonimoTest`
 Expected: `"result":"passed"`, 3 tests.
 
-- [ ] **Step 5: Regresión del flujo clínico**
+- [x] **Step 5: Regresión del flujo clínico**
 
 Run: `php artisan test --filter="FlujoClinicoTest|PrecalificacionVincularTest"`
 Expected: `"result":"passed"`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 ./vendor/bin/pint --dirty
@@ -1178,7 +1193,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `User::NOMBRE_TEMPORAL` (Task 1), relación `User::tokens()` (Sanctum, existe), `Paciente` con `SoftDeletes` (existe).
 - Produces: comando `usuarios:purgar-anonimos {--dias=} {--dry-run}`; clave de config `auth.anonimos.dias_vigencia` (int, default 30); tarea programada diaria.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `tests/Feature/PurgarUsuariosAnonimosTest.php`:
 
@@ -1297,12 +1312,12 @@ class PurgarUsuariosAnonimosTest extends TestCase
 }
 ```
 
-- [ ] **Step 2: Correr el test y verificar que falla**
+- [x] **Step 2: Correr el test y verificar que falla**
 
 Run: `php artisan test --filter=PurgarUsuariosAnonimosTest`
 Expected: FAIL — `There are no commands defined in the "usuarios" namespace.`
 
-- [ ] **Step 3: Config y `.env.example`**
+- [x] **Step 3: Config y `.env.example`**
 
 En `config/auth.php`, antes del `];` final (después de `'password_timeout' => ...`), agregar:
 
@@ -1329,7 +1344,7 @@ Al final de `.env.example` agregar:
 ANONIMOS_DIAS_VIGENCIA=30
 ```
 
-- [ ] **Step 4: Comando**
+- [x] **Step 4: Comando**
 
 Crear `app/Console/Commands/PurgarUsuariosAnonimos.php`:
 
@@ -1413,7 +1428,7 @@ class PurgarUsuariosAnonimos extends Command
 }
 ```
 
-- [ ] **Step 5: Programar el comando**
+- [x] **Step 5: Programar el comando**
 
 Reemplazar el contenido de `routes/console.php` por:
 
@@ -1432,12 +1447,12 @@ Artisan::command('inspire', function () {
 Schedule::command('usuarios:purgar-anonimos')->daily();
 ```
 
-- [ ] **Step 6: Correr el test y verificar que pasa**
+- [x] **Step 6: Correr el test y verificar que pasa**
 
 Run: `php artisan test --filter=PurgarUsuariosAnonimosTest`
 Expected: `"result":"passed"`, 6 tests.
 
-- [ ] **Step 7: Verificar el registro del comando y la programación**
+- [x] **Step 7: Verificar el registro del comando y la programación**
 
 Run: `php artisan list usuarios`
 Expected: aparece `usuarios:purgar-anonimos`.
@@ -1445,7 +1460,7 @@ Expected: aparece `usuarios:purgar-anonimos`.
 Run: `php artisan schedule:list`
 Expected: una línea `0 0 * * *  php artisan usuarios:purgar-anonimos`.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 ./vendor/bin/pint --dirty
@@ -1461,7 +1476,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **Files:** ninguno nuevo.
 
-- [ ] **Step 1: Suite completa y formato**
+- [x] **Step 1: Suite completa y formato**
 
 Run: `./vendor/bin/pint --test`
 Expected: `"result":"passed"` (o sin archivos por corregir).
@@ -1469,17 +1484,17 @@ Expected: `"result":"passed"` (o sin archivos por corregir).
 Run: `php artisan test`
 Expected: `"result":"passed"`; el total debe haber crecido en 32 tests respecto al inicio de la rama (3 + 4 + 7 + 9 + 3 + 6).
 
-- [ ] **Step 2: Rutas**
+- [x] **Step 2: Rutas**
 
 Run: `php artisan route:list --path=auth`
 Expected: aparecen `POST api/auth/anonimo`, `POST api/auth/auth0`, `POST api/auth/logout`. Si el comando falla por `TipoEstudioController::listar` (bug preexistente, ver Global Constraints), verificar en su lugar con `grep -n "auth/anonimo" routes/api.php`.
 
-- [ ] **Step 3: Migración contra MySQL de desarrollo (manual, no en CI)**
+- [x] **Step 3: Migración contra MySQL de desarrollo (manual, no en CI)**
 
 Run: `php artisan migrate`
 Expected: `2026_08_17_100000_make_users_email_nullable ... DONE`. Confirmar en MySQL: `SHOW COLUMNS FROM users LIKE 'email';` → `Null = YES`, y `SHOW INDEX FROM users WHERE Column_name = 'email';` sigue mostrando el índice único.
 
-- [ ] **Step 4: Prueba manual del flujo (opcional, con el servidor levantado)**
+- [x] **Step 4: Prueba manual del flujo (opcional, con el servidor levantado)**
 
 ```bash
 # 1. alta anonima
@@ -1493,6 +1508,6 @@ curl -s -X POST http://localhost:8000/api/auth/auth0 -H "Accept: application/jso
 
 Expected: paso 1 devuelve `esTemporal: true`; paso 3 devuelve el mismo `usuario.id` con `esTemporal: false` y `email` cargado.
 
-- [ ] **Step 5: Entregar la rama**
+- [x] **Step 5: Entregar la rama**
 
 Sin commits pendientes; la rama `feature/paciente-anonimo` lista para PR contra `main`. Cuerpo del PR: enlazar la spec y resumir el contrato para la app (sección "Contrato para la app (Flutter)" de la spec).

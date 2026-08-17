@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActividadController;
 use App\Http\Controllers\AlertaController;
 use App\Http\Controllers\AntecedenteFamiliarController;
 use App\Http\Controllers\ArchivoController;
@@ -155,6 +156,9 @@ Route::middleware('auth:sanctum')->group(function () use ($crud) {
 
     Route::post('tomas/{id}/marcar', [TomaController::class, 'marcar'])->whereNumber('id');
     $crud('tomas', TomaController::class);
+
+    // Historial del paciente (tomas marcadas + mediciones) para la app.
+    Route::get('actividad', [ActividadController::class, 'listar']);
 
     // ------------------------------------------------ dominio 4: comercial
 

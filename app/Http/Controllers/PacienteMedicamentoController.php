@@ -30,6 +30,10 @@ class PacienteMedicamentoController extends BaseCrudController
             'medicamentoId' => [$req, 'exists:medicamentos,id'],
             'dosis' => [$req, 'string', 'max:255'],
             'frecuencia' => [$req, 'string', 'max:255'],
+            // Horas del dia en las que toca la toma. La app materializa las
+            // tomas diarias a partir de esta lista.
+            'horarios' => [$req, 'array', 'min:1', 'max:6'],
+            'horarios.*' => ['required', 'date_format:H:i', 'distinct'],
             'indicaciones' => ['nullable', 'string'],
             'fechaInicio' => [$req, 'date'],
             'fechaFin' => ['nullable', 'date', 'after_or_equal:fechaInicio'],

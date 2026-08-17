@@ -19,6 +19,7 @@ class PacienteMedicamento extends Model
         'medicamentoId',
         'dosis',
         'frecuencia',
+        'horarios',
         'indicaciones',
         'fechaInicio',
         'fechaFin',
@@ -30,6 +31,7 @@ class PacienteMedicamento extends Model
         return [
             'fechaInicio' => 'date',
             'fechaFin' => 'date',
+            'horarios' => 'array',
             'activo' => 'boolean',
         ];
     }

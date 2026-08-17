@@ -22,6 +22,9 @@ class User extends Authenticatable
 
     public const ROL_PACIENTE = 'paciente';
 
+    /** Nombre con el que nace un paciente anonimo hasta que lo complete o lo reclame. */
+    public const NOMBRE_TEMPORAL = 'Paciente';
+
     protected $fillable = [
         'name',
         'apellidoPaterno',
@@ -38,6 +41,9 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    /** @var array<int, string> */
+    protected $appends = ['esTemporal'];
 
     protected function casts(): array
     {
@@ -95,5 +101,21 @@ class User extends Authenticatable
     public function esPaciente(): bool
     {
         return $this->rol === self::ROL_PACIENTE;
+    }
+
+    /**
+     * Paciente anonimo: entro por POST /auth/anonimo y todavia no reclamo la
+     * cuenta con Auth0. Se deriva del correo para que no exista un estado que
+     * pueda quedar desincronizado: al reclamar se escribe el email y deja de
+     * ser temporal solo.
+     */
+    public function esTemporal(): bool
+    {
+        return $this->email === null;
+    }
+
+    public function getEsTemporalAttribute(): bool
+    {
+        return $this->esTemporal();
     }
 }

@@ -1,0 +1,23 @@
+#!/bin/sh
+# Entrypoint de la imagen glucy-api. Corre como root, prepara storage y cachea
+# la config con las variables de entorno reales; php-fpm baja a www-data solo.
+set -eu
+
+cd /var/www/html
+
+# Los volumenes de storage/app y storage/logs pueden llegar vacios.
+mkdir -p storage/app/medico storage/app/private storage/app/public \
+         storage/framework/cache/data storage/framework/sessions storage/framework/views \
+         storage/logs bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
+
+if [ "${APP_KEY:-}" = "" ]; then
+    echo "[entrypoint] APP_KEY vacio: genera uno con 'php artisan key:generate --show' y ponlo en api.env" >&2
+    exit 1
+fi
+
+# Cache de config/rutas/eventos con el env de este contenedor.
+# Se ejecuta como www-data para que los archivos cacheados sean suyos.
+su-exec www-data php artisan optimize --no-interaction
+
+exec "$@"

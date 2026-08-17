@@ -6,6 +6,7 @@ use App\Http\Controllers\ArchivoController;
 use App\Http\Controllers\ArticuloAyudaController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\Auth0SessionController;
+use App\Http\Controllers\Auth\SesionAnonimaController;
 use App\Http\Controllers\CasoController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CicloController;
@@ -66,6 +67,12 @@ Route::get('/precalificacion/preguntas', [PreguntaPrecalificacionController::cla
 
 Route::post('/precalificacion/evaluar', [PrecalificacionController::class, 'evaluar'])
     ->middleware('throttle:10,1');
+
+// El paciente empieza sin cuenta: identidad temporal + token. La reclama
+// despues en POST /auth/auth0 mandando este mismo Bearer.
+Route::post('/auth/anonimo', [SesionAnonimaController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('auth.anonimo');
 
 // Destino de los enlaces temporales de POST /archivos/{id}/enlace. La firma es la
 // credencial: sirve para el <Image src> de la app, donde no se puede mandar el

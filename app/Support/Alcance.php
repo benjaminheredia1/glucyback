@@ -22,6 +22,26 @@ class Alcance
         return Paciente::where('usuarioId', $usuario->id)->value('id');
     }
 
+    /**
+     * Paciente sobre el que actua una peticion "por paciente" (tomas del dia,
+     * actividad): el propio si quien pide es paciente (el `pedido` se ignora);
+     * el `pedido` si es doctor/admin y esta dentro de su alcance; null si no.
+     */
+    public static function pacienteObjetivo(User $usuario, ?int $pedido): ?int
+    {
+        if ($usuario->esPaciente()) {
+            return self::pacienteId($usuario);
+        }
+
+        if ($pedido === null) {
+            return null;
+        }
+
+        $visibles = self::pacientesVisibles($usuario);
+
+        return ($visibles === null || in_array($pedido, $visibles, true)) ? $pedido : null;
+    }
+
     public static function doctor(User $usuario): ?Doctor
     {
         return Doctor::where('usuarioId', $usuario->id)->first();

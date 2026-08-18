@@ -35,7 +35,16 @@ class ClinicaController extends BaseCrudController
             'nit' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
             'planId' => ['nullable', 'exists:planes,id'],
-            'usuarioId' => [$req, 'exists:users,id'],
+            // Responsable de la clinica. El panel de administracion no elige
+            // responsable al dar de alta: si no viene, queda el admin que crea.
+            'usuarioId' => ['sometimes', 'integer', 'exists:users,id'],
         ];
+    }
+
+    protected function antesDeCrear(Request $request, array $datos): array
+    {
+        $datos['usuarioId'] ??= $request->user()->id;
+
+        return $datos;
     }
 }

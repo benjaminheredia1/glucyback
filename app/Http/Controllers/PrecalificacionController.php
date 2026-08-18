@@ -6,6 +6,7 @@ use App\Models\Precalificacion;
 use App\Models\PreguntaPrecalificacion;
 use App\Models\User;
 use App\Support\Alcance;
+use App\Support\SesionOpcional;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +51,8 @@ class PrecalificacionController extends BaseCrudController
      *
      * Es el unico camino que garantiza que `resultado` concuerde con la evidencia:
      * el CRUD plano permitiria guardar un veredicto sin respuestas que lo sostengan.
+     *
+     * Si viene el Bearer de un paciente, el resultado se ata a ese paciente.
      */
     public function evaluar(Request $request): JsonResponse
     {
@@ -60,6 +63,20 @@ class PrecalificacionController extends BaseCrudController
             'respuestas.*.preguntaId' => ['required', 'exists:preguntas_precalificacion,id'],
             'respuestas.*.respuesta' => ['required', 'in:si,no'],
         ]);
+
+        // Con el Bearer de un paciente (anonimo o no) la precalificacion queda
+        // a su nombre; el pacienteId del cuerpo se ignora, igual que hace el
+        // CRUD con forzarPacientePropio. Sin Bearer sigue siendo el flujo
+        // anonimo por leadEmail.
+        $sesion = SesionOpcional::usuario($request);
+
+        if ($sesion !== null && $sesion->esPaciente()) {
+            $pacienteId = Alcance::pacienteId($sesion);
+
+            abort_if($pacienteId === null, 422, 'El usuario no tiene perfil de paciente.');
+
+            $datos['pacienteId'] = $pacienteId;
+        }
 
         $preguntas = PreguntaPrecalificacion::whereIn(
             'id',

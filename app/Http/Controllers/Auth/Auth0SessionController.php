@@ -10,6 +10,7 @@ use App\Support\Auth0\Auth0NoDisponible;
 use App\Support\Auth0\PerfilAuth0;
 use App\Support\Auth0\TokenAuth0Invalido;
 use App\Support\Auth0\VerificadorAuth0;
+use App\Support\SesionOpcional;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,10 @@ use Laravel\Sanctum\PersonalAccessToken;
  *
  * El resto de la API sigue autenticando con Sanctum: asi el alcance, los roles y
  * la auditoria no cambian por haber movido la identidad a Auth0.
+ *
+ * Si la peticion trae el Bearer de un paciente anonimo (POST /auth/anonimo),
+ * el intercambio ademas reclama esa cuenta: escribe email y auth0Sub sobre la
+ * misma fila en vez de crear un usuario nuevo.
  */
 class Auth0SessionController extends Controller
 {
@@ -31,6 +36,12 @@ class Auth0SessionController extends Controller
             'accessToken' => ['required', 'string'],
             'dispositivo' => ['sometimes', 'string', 'max:100'],
         ]);
+
+        // Si viene el Bearer de un paciente anonimo, este login es un reclamo:
+        // la cuenta que devuelva Auth0 se escribe sobre esa misma fila. El
+        // Bearer de una cuenta ya real se ignora: es el re-login de siempre.
+        $sesion = SesionOpcional::usuario($request);
+        $anonimo = $sesion?->esTemporal() ? $sesion : null;
 
         try {
             $perfil = $this->verificador->verificar($datos['accessToken']);
@@ -46,11 +57,17 @@ class Auth0SessionController extends Controller
             'Auth0 no entrego un correo para esta cuenta.'
         );
 
-        $usuario = DB::transaction(fn () => $this->resolverUsuario($request, $perfil));
+        $usuario = DB::transaction(fn () => $this->resolverUsuario($request, $perfil, $anonimo));
 
-        // Un token por dispositivo: reentrar desde el mismo equipo no acumula.
         $nombreToken = $datos['dispositivo'] ?? 'api';
-        $usuario->tokens()->where('name', $nombreToken)->delete();
+
+        if ($anonimo !== null) {
+            // El reclamo cierra la sesion anonima: la app guarda el token nuevo.
+            $usuario->tokens()->delete();
+        } else {
+            // Un token por dispositivo: reentrar desde el mismo equipo no acumula.
+            $usuario->tokens()->where('name', $nombreToken)->delete();
+        }
 
         return response()->json([
             'token' => $usuario->createToken($nombreToken)->plainTextToken,
@@ -69,13 +86,17 @@ class Auth0SessionController extends Controller
         return response()->json(null, 204);
     }
 
-    private function resolverUsuario(Request $request, PerfilAuth0 $perfil): User
+    private function resolverUsuario(Request $request, PerfilAuth0 $perfil, ?User $anonimo): User
     {
         // Normalizar una sola vez: Auth0 puede devolver mayusculas o espacios
         // y el alta local (UsuarioController) siempre guarda en minusculas.
         // Sin esto, "Maria@Ejemplo.com" no encuentra a "maria@ejemplo.com" y
         // el doctor termina con una cuenta de paciente nueva.
         $email = trim(mb_strtolower($perfil->email));
+
+        if ($anonimo !== null) {
+            return $this->reclamar($request, $perfil, $email, $anonimo);
+        }
 
         $porSub = User::where('auth0Sub', $perfil->sub)->first();
 
@@ -145,6 +166,52 @@ class Auth0SessionController extends Controller
         $this->auditar($request, 'crear', $usuario, null, $usuario->toArray());
 
         return $usuario;
+    }
+
+    /**
+     * Convierte al paciente anonimo en la cuenta que devuelve Auth0.
+     *
+     * Misma fila de users y de pacientes: estudios, archivos y precalificacion
+     * ya cuelgan de ella, asi que no se mueve nada. Solo se rellenan las
+     * columnas que el anonimo no tenia.
+     */
+    private function reclamar(Request $request, PerfilAuth0 $perfil, string $email, User $anonimo): User
+    {
+        // Primero: un correo sin verificar no puede ni sondear si existe cuenta.
+        abort_unless($perfil->emailVerificado, 422, 'Auth0 no ha verificado este correo para reclamar la cuenta.');
+
+        // Misma regla que el alta: una baja no revive por un login.
+        abort_if(
+            User::onlyTrashed()->where(function ($consulta) use ($email, $perfil) {
+                $consulta->where('email', $email)->orWhere('auth0Sub', $perfil->sub);
+            })->exists(),
+            403,
+            'Esta cuenta esta dada de baja. Contacta con soporte.'
+        );
+
+        // Fusionar dos personas implica reasignar decenas de tablas: fuera de
+        // alcance. El anonimo queda intacto y la app ofrece iniciar sesion.
+        abort_if(
+            User::where(function ($consulta) use ($email, $perfil) {
+                $consulta->where('email', $email)->orWhere('auth0Sub', $perfil->sub);
+            })->exists(),
+            409,
+            'Ya existe una cuenta con este correo. Inicia sesion con ella.'
+        );
+
+        $antes = $anonimo->toArray();
+
+        $anonimo->update([
+            'email' => $email,
+            'auth0Sub' => $perfil->sub,
+            // Solo se pisa el placeholder: pudo completar su nombre por /perfil.
+            'name' => $anonimo->name === User::NOMBRE_TEMPORAL ? ($perfil->nombre ?? $email) : $anonimo->name,
+            'email_verified_at' => now(),
+        ]);
+
+        $this->auditar($request, 'reclamar', $anonimo, $antes, $anonimo->toArray());
+
+        return $anonimo;
     }
 
     /**

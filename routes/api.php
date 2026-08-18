@@ -35,6 +35,7 @@ use App\Http\Controllers\PrecalificacionController;
 use App\Http\Controllers\PrecalificacionRespuestaController;
 use App\Http\Controllers\PreguntaPrecalificacionController;
 use App\Http\Controllers\ReglaAlertaController;
+use App\Http\Controllers\SolicitudAccesoDoctorController;
 use App\Http\Controllers\SuscripcionController;
 use App\Http\Controllers\TipoEstudioController;
 use App\Http\Controllers\TomaController;
@@ -74,6 +75,12 @@ Route::post('/auth/anonimo', [SesionAnonimaController::class, 'store'])
     ->middleware('throttle:5,1')
     ->name('auth.anonimo');
 
+// El doctor pide acceso desde la landing, sin cuenta todavia: la solicitud
+// queda pendiente hasta que un admin verifique la matricula.
+Route::post('/acceso-doctor/solicitar', [SolicitudAccesoDoctorController::class, 'solicitar'])
+    ->middleware('throttle:5,1')
+    ->name('acceso-doctor.solicitar');
+
 // Destino de los enlaces temporales de POST /archivos/{id}/enlace. La firma es la
 // credencial: sirve para el <Image src> de la app, donde no se puede mandar el
 // Bearer. Emitirlo si exige sesion y alcance.
@@ -99,6 +106,7 @@ Route::middleware('auth:sanctum')->group(function () use ($crud) {
     $crud('usuarios', UsuarioController::class);
     $crud('clinicas', ClinicaController::class);
     $crud('doctores', DoctorController::class);
+    $crud('solicitudes-acceso-doctor', SolicitudAccesoDoctorController::class);
     $crud('pacientes', PacienteController::class);
     $crud('antecedentes-familiares', AntecedenteFamiliarController::class);
     $crud('doctor-paciente', DoctorPacienteController::class);

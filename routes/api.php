@@ -7,6 +7,7 @@ use App\Http\Controllers\ArchivoController;
 use App\Http\Controllers\ArticuloAyudaController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\Auth\Auth0SessionController;
+use App\Http\Controllers\Auth\PanelSessionController;
 use App\Http\Controllers\Auth\SesionAnonimaController;
 use App\Http\Controllers\CasoController;
 use App\Http\Controllers\ChatController;
@@ -61,6 +62,11 @@ $crud = function (string $prefijo, string $controlador): void {
 Route::post('/auth/auth0', [Auth0SessionController::class, 'store'])
     ->middleware('throttle:10,1')
     ->name('auth0.login');
+
+// Login local del panel de gestion (admin/doctor) con correo y contrasena.
+Route::post('/auth/panel', [PanelSessionController::class, 'store'])
+    ->middleware('throttle:5,1')
+    ->name('panel.login');
 
 // El filtro clinico corre antes de crear la cuenta: no puede exigir sesion.
 Route::get('/precalificacion/preguntas', [PreguntaPrecalificacionController::class, 'publicas'])

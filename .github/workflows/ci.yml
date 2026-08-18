@@ -66,3 +66,14 @@ jobs:
 
       - name: Ejecutar tests
         run: php artisan test
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    # Solo despliega lo que ya paso los tests, y solo desde main.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Disparar en Dokploy
+        run: |
+          curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            --fail --silent --show-error

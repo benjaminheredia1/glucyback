@@ -120,6 +120,11 @@ class PacientePanelCrudTest extends TestCase
         $this->actingAs($usuarioDoctor)
             ->postJson('/api/pacientes', $this->cuerpo(['usuario' => ['email' => 'otra@ejemplo.com'], 'clinicaId' => $otra->id]))
             ->assertForbidden();
+
+        // El alta rechazada no puede dejar un User huerfano con ese correo:
+        // el usuario anidado se crea dentro de la misma transaccion que el
+        // paciente y se revierte con el.
+        $this->assertDatabaseMissing('users', ['email' => 'otra@ejemplo.com']);
     }
 
     public function test_eliminar_paciente_conserva_el_usuario(): void

@@ -111,10 +111,13 @@ abstract class BaseCrudController extends Controller
         $this->autorizarEscritura($request);
         $this->inyectarPacientePropio($request);
 
-        $datos = $request->validate($this->reglas($request, true));
-        $datos = $this->antesDeCrear($request, $this->forzarPaciente($request, $datos));
+        $datos = $this->forzarPaciente($request, $request->validate($this->reglas($request, true)));
 
+        // `antesDeCrear` va dentro de la transaccion: un hijo puede crear filas
+        // auxiliares ahi (PacienteController crea el User del paciente) y, si
+        // el alta falla despues (alcance, por ejemplo), tienen que revertirse.
         $registro = DB::transaction(function () use ($request, $datos) {
+            $datos = $this->antesDeCrear($request, $datos);
             $registro = $this->modelo::create($datos);
             $this->verificarAlcance($request, $registro);
             $this->auditar($request, 'crear', $registro, null, $registro->toArray());
@@ -134,12 +137,12 @@ abstract class BaseCrudController extends Controller
 
         $this->inyectarPacientePropio($request);
 
-        $datos = $request->validate($this->reglas($request, false));
-        $datos = $this->antesDeActualizar($request, $registro, $this->forzarPaciente($request, $datos));
+        $datos = $this->forzarPaciente($request, $request->validate($this->reglas($request, false)));
 
         $antes = $registro->toArray();
 
         DB::transaction(function () use ($request, $registro, $datos, $antes) {
+            $datos = $this->antesDeActualizar($request, $registro, $datos);
             $registro->update($datos);
             $this->verificarAlcance($request, $registro);
             $this->auditar($request, 'actualizar', $registro, $antes, $registro->toArray());

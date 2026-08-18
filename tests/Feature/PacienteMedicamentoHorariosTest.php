@@ -19,7 +19,9 @@ class PacienteMedicamentoHorariosTest extends TestCase
     use RefreshDatabase;
 
     private User $usuarioDoctor;
+
     private Paciente $paciente;
+
     private Medicamento $medicamento;
 
     protected function setUp(): void

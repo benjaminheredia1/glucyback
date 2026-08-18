@@ -23,9 +23,13 @@ class ActividadTest extends TestCase
     use RefreshDatabase;
 
     private User $usuarioDoctor;
+
     private User $usuarioA;
+
     private User $usuarioB;
+
     private Paciente $pacienteA;
+
     private Paciente $pacienteB;
 
     protected function setUp(): void
@@ -109,7 +113,7 @@ class ActividadTest extends TestCase
             ->assertJsonPath('data.0.valor', 132);
     }
 
-    public function test_el_doctor_ve_la_de_un_paciente_visible_y_nada_sin_pacienteId(): void
+    public function test_el_doctor_ve_la_de_un_paciente_visible_y_nada_sin_paciente_id(): void
     {
         $this->actingAs($this->usuarioDoctor)
             ->getJson('/api/actividad?pacienteId='.$this->pacienteA->id)

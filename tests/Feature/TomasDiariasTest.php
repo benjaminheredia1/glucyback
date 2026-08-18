@@ -22,10 +22,15 @@ class TomasDiariasTest extends TestCase
     use RefreshDatabase;
 
     private User $usuarioDoctor;
+
     private User $usuarioA;
+
     private User $usuarioB;
+
     private Paciente $pacienteA;
+
     private Paciente $pacienteB;
+
     private Medicamento $metformina;
 
     protected function setUp(): void

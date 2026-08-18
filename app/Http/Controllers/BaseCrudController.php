@@ -173,9 +173,7 @@ abstract class BaseCrudController extends Controller
      * Filtros propios de un listado (ademas de `$filtrables`). Por defecto
      * nada; los hijos lo sobreescriben sin duplicar `listar()`.
      */
-    protected function filtrarListado(Request $request, Builder $consulta): void
-    {
-    }
+    protected function filtrarListado(Request $request, Builder $consulta): void {}
 
     protected function antesDeCrear(Request $request, array $datos): array
     {

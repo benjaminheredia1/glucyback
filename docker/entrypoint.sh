@@ -35,4 +35,10 @@ until su-exec www-data php artisan migrate --force --no-interaction; do
     sleep 3
 done
 
+# Seeders idempotentes (updateOrCreate): catalogos base + usuario admin.
+# Desactivar con RUN_SEEDERS=0.
+if [ "${RUN_SEEDERS:-1}" = "1" ]; then
+    su-exec www-data php artisan db:seed --force --no-interaction
+fi
+
 exec "$@"

@@ -9,7 +9,7 @@ use OpenApi\Attributes as OA;
  * compartidos. Las operaciones viven en cada controlador (acciones propias)
  * y en app/OpenApi/Crud (generadas con `php artisan openapi:crud`).
  *
- * Regenerar: `php artisan l5-swagger:generate`. UI: /api/documentation.
+ * Regenerar: `php artisan l5-swagger:generate`. UI: /api/documentation, JSON: /api/docs.
  */
 #[OA\Info(
     version: '1.0.0',

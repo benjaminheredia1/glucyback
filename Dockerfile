@@ -3,6 +3,7 @@ FROM php:8.3-fpm-alpine AS base
 RUN apk add --no-cache \
     nginx \
     supervisor \
+    su-exec \
     libpng-dev \
     libxml2-dev \
     zip \
@@ -22,10 +23,7 @@ RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
 COPY . . 
 
-RUN composer dump-autoload --optimize \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+RUN composer dump-autoload --optimize
 
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
@@ -36,6 +34,10 @@ COPY docker/nginx.conf /etc/nginx/nginx.conf
 
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 80
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

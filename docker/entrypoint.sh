@@ -20,4 +20,16 @@ fi
 # Se ejecuta como www-data para que los archivos cacheados sean suyos.
 su-exec www-data php artisan optimize --no-interaction
 
+# Migraciones idempotentes: DB puede tardar en levantar, reintentar.
+i=0
+until su-exec www-data php artisan migrate --force --no-interaction; do
+    i=$((i+1))
+    if [ "$i" -ge 10 ]; then
+        echo "[entrypoint] migrate fallo tras 10 intentos" >&2
+        exit 1
+    fi
+    echo "[entrypoint] DB no lista, reintento $i/10..." >&2
+    sleep 3
+done
+
 exec "$@"

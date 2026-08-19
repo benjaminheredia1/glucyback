@@ -91,6 +91,6 @@ jobs:
     steps:
       - name: Disparar en Dokploy
         run: |
-          curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}" \
+          curl -X POST "${{ secrets.DOKPLOY_URL }}" \
             -H "Content-Type: application/json" \
             --fail --silent --show-error

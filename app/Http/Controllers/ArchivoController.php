@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use OpenApi\Attributes as OA;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ArchivoController extends BaseCrudController
@@ -62,6 +63,27 @@ class ArchivoController extends BaseCrudController
         );
     }
 
+    #[OA\Post(
+        path: '/archivos/subir',
+        tags: ['Archivo'],
+        summary: 'Subir un archivo',
+        description: 'Cualquier rol puede subir; el archivo queda a nombre del usuario. Si ya existia uno identico (mismo hash) responde 200 con el existente.',
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\MediaType(mediaType: 'multipart/form-data', schema: new OA\Schema(
+            required: ['archivo'],
+            properties: [
+                new OA\Property(property: 'archivo', type: 'string', format: 'binary'),
+                new OA\Property(property: 'nombre', type: 'string', maxLength: 255, nullable: true),
+                new OA\Property(property: 'descripcion', type: 'string', maxLength: 255, nullable: true),
+            ],
+        ))),
+        responses: [
+            new OA\Response(response: 201, description: 'Archivo guardado', content: new OA\JsonContent(ref: '#/components/schemas/Archivo')),
+            new OA\Response(response: 200, description: 'Archivo identico ya existente', content: new OA\JsonContent(ref: '#/components/schemas/Archivo')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     /**
      * Subida real. Cualquier rol puede subir; el archivo queda a su nombre.
      */
@@ -87,6 +109,20 @@ class ArchivoController extends BaseCrudController
         return response()->json($archivo, $archivo->wasRecentlyCreated ? 201 : 200);
     }
 
+    #[OA\Get(
+        path: '/archivos/{id}/descargar',
+        tags: ['Archivo'],
+        summary: 'Descargar un archivo (autenticado)',
+        description: 'Devuelve los bytes como adjunto. Camino normal de la app: manda el Bearer y recibe el archivo.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Contenido del archivo', content: new OA\MediaType(mediaType: 'application/octet-stream', schema: new OA\Schema(type: 'string', format: 'binary'))),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+        ],
+    )]
     /**
      * Descarga autenticada. Es el camino normal: la app manda el Bearer y recibe
      * los bytes. No expone ninguna URL reutilizable.
@@ -108,6 +144,23 @@ class ArchivoController extends BaseCrudController
         return Storage::disk($archivo->disk)->download($archivo->ruta, $archivo->nombre);
     }
 
+    #[OA\Post(
+        path: '/archivos/{id}/enlace',
+        tags: ['Archivo'],
+        summary: 'Emitir enlace temporal firmado',
+        description: 'Para contextos que no pueden mandar cabeceras (<Image src>, visor PDF). Vale 5 minutos por si solo: quien lo tenga abre el archivo. La emision queda auditada.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Enlace emitido', content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'url', type: 'string', format: 'uri'),
+                new OA\Property(property: 'expiraEn', type: 'string', format: 'date-time'),
+            ])),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+        ],
+    )]
     /**
      * Enlace temporal firmado, para contextos que no pueden mandar cabeceras
      * (un <Image src> en la app, un visor de PDF embebido).
@@ -133,6 +186,22 @@ class ArchivoController extends BaseCrudController
         ]);
     }
 
+    #[OA\Get(
+        path: '/archivos/firmado/{id}',
+        tags: ['Archivo'],
+        summary: 'Servir archivo por enlace firmado (publico)',
+        description: 'Destino de POST /archivos/{id}/enlace. La firma de la URL (query signature + expires) es la credencial; no requiere Bearer. Limite: 60 por minuto.',
+        parameters: [
+            new OA\Parameter(ref: '#/components/parameters/id'),
+            new OA\Parameter(name: 'expires', in: 'query', required: true, schema: new OA\Schema(type: 'integer'), description: 'Unix timestamp de expiracion (lo pone el enlace)'),
+            new OA\Parameter(name: 'signature', in: 'query', required: true, schema: new OA\Schema(type: 'string'), description: 'Firma HMAC (la pone el enlace)'),
+        ],
+        responses: [
+            new OA\Response(response: 200, description: 'Contenido del archivo', content: new OA\MediaType(mediaType: 'application/octet-stream', schema: new OA\Schema(type: 'string', format: 'binary'))),
+            new OA\Response(response: 403, description: 'Firma invalida o vencida', content: new OA\JsonContent(ref: '#/components/schemas/Error')),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+        ],
+    )]
     /**
      * Destino del enlace firmado. La firma es la credencial: si no valida, el
      * middleware `signed` corta antes de llegar aca.

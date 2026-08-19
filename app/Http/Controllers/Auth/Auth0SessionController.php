@@ -15,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\PersonalAccessToken;
+use OpenApi\Attributes as OA;
 
 /**
  * Canjea un access token de Auth0 por uno de Sanctum.
@@ -30,6 +31,25 @@ class Auth0SessionController extends Controller
 {
     public function __construct(private readonly VerificadorAuth0 $verificador) {}
 
+    #[OA\Post(
+        path: '/auth/auth0',
+        tags: ['Auth'],
+        summary: 'Canjear access token de Auth0 por token de Sanctum',
+        description: 'Login de la app movil. Si la peticion trae ademas el Bearer de un paciente anonimo (POST /auth/anonimo), la cuenta anonima se reclama: queda con el correo y auth0Sub de Auth0 y se revocan sus tokens previos. Limite: 10 por minuto.',
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(
+            required: ['accessToken'],
+            properties: [
+                new OA\Property(property: 'accessToken', type: 'string', description: 'Access token emitido por Auth0 (PKCE)'),
+                new OA\Property(property: 'dispositivo', type: 'string', maxLength: 100, description: 'Nombre del token; un token por dispositivo'),
+            ],
+        )),
+        responses: [
+            new OA\Response(response: 200, description: 'Sesion iniciada', content: new OA\JsonContent(ref: '#/components/schemas/SesionIniciada')),
+            new OA\Response(response: 401, description: 'Access token de Auth0 invalido', content: new OA\JsonContent(ref: '#/components/schemas/Error')),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+            new OA\Response(response: 503, description: 'Auth0 no disponible', content: new OA\JsonContent(ref: '#/components/schemas/Error')),
+        ],
+    )]
     public function store(Request $request): JsonResponse
     {
         $datos = $request->validate([
@@ -75,6 +95,17 @@ class Auth0SessionController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/auth/logout',
+        tags: ['Auth'],
+        summary: 'Cerrar sesion',
+        description: 'Revoca el token con el que se hizo la peticion.',
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(response: 204, description: 'Sesion cerrada'),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+        ],
+    )]
     public function destroy(Request $request): JsonResponse
     {
         $token = $request->user()?->currentAccessToken();

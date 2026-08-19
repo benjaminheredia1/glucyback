@@ -10,6 +10,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class TomaController extends BaseCrudController
 {
@@ -85,6 +86,22 @@ class TomaController extends BaseCrudController
         return [$inicio, $zona];
     }
 
+    #[OA\Post(
+        path: '/tomas/{id}/marcar',
+        tags: ['Toma'],
+        summary: 'Marcar una toma como tomada u omitida',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['estado'], properties: [new OA\Property(property: 'estado', type: 'string', enum: ['tomada', 'omitida'])])),
+        responses: [
+            new OA\Response(response: 200, description: 'Toma marcada', content: new OA\JsonContent(ref: '#/components/schemas/Toma')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     public function marcar(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);

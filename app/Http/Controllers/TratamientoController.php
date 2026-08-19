@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 
 class TratamientoController extends BaseCrudController
 {
@@ -57,6 +58,21 @@ class TratamientoController extends BaseCrudController
         abort_if($registro->estaFirmado(), 409, 'Un tratamiento firmado no se puede eliminar.');
     }
 
+    #[OA\Post(
+        path: '/tratamientos/{id}/firmar',
+        tags: ['Tratamiento'],
+        summary: 'Firmar tratamiento',
+        description: 'Lo firma el doctor de la sesion. Falla si ya esta firmado o si el doctor no corresponde.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Tratamiento firmado', content: new OA\JsonContent(ref: '#/components/schemas/Tratamiento')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+        ],
+    )]
     public function firmar(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);
@@ -92,6 +108,21 @@ class TratamientoController extends BaseCrudController
         return response()->json($tratamiento->fresh($this->with));
     }
 
+    #[OA\Post(
+        path: '/tratamientos/{id}/enviar',
+        tags: ['Tratamiento'],
+        summary: 'Enviar tratamiento al paciente',
+        description: 'Solo se envia un tratamiento firmado.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Tratamiento enviado', content: new OA\JsonContent(ref: '#/components/schemas/Tratamiento')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+        ],
+    )]
     public function enviar(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);
@@ -109,6 +140,23 @@ class TratamientoController extends BaseCrudController
         return response()->json($tratamiento->fresh($this->with));
     }
 
+    #[OA\Post(
+        path: '/tratamientos/{id}/reemplazar',
+        tags: ['Tratamiento'],
+        summary: 'Reemplazar tratamiento firmado por uno nuevo',
+        description: 'Crea un tratamiento nuevo ligado al anterior. Solo sobre uno firmado y no reemplazado aun.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['descripcion'], properties: [new OA\Property(property: 'descripcion', type: 'string', maxLength: 255), new OA\Property(property: 'tratamientoAI', type: 'string', nullable: true), new OA\Property(property: 'tratamientoDoctor', type: 'string', nullable: true), new OA\Property(property: 'notaDoctor', type: 'string', nullable: true), new OA\Property(property: 'cicloId', type: 'integer', nullable: true), new OA\Property(property: 'casoId', type: 'integer', nullable: true)])),
+        responses: [
+            new OA\Response(response: 201, description: 'Tratamiento nuevo creado', content: new OA\JsonContent(ref: '#/components/schemas/Tratamiento')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     /**
      * Ajuste de ciclo: emite una version nueva encadenada al tratamiento firmado.
      * El original queda intacto como historial clinico.

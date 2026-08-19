@@ -9,6 +9,7 @@ use App\Support\Alcance;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class EstudioMedicoController extends BaseCrudController
 {
@@ -73,6 +74,22 @@ class EstudioMedicoController extends BaseCrudController
         return $datos;
     }
 
+    #[OA\Post(
+        path: '/estudios-medicos/{id}/validar',
+        tags: ['Estudio Medico'],
+        summary: 'Validar estudio medico',
+        description: 'Cambia el estado de revision. Si se rechaza, motivoRechazo es obligatorio.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['estado'], properties: [new OA\Property(property: 'estado', type: 'string', enum: ['en_revision', 'aprobado', 'rechazado']), new OA\Property(property: 'motivoRechazo', type: 'string', maxLength: 255, nullable: true)])),
+        responses: [
+            new OA\Response(response: 200, description: 'Estudio validado', content: new OA\JsonContent(ref: '#/components/schemas/EstudioMedico')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     public function validarEstudio(Request $request, int $id): JsonResponse
     {
         $this->autorizar($request);

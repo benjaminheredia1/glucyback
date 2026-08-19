@@ -20,6 +20,9 @@ fi
 # Se ejecuta como www-data para que los archivos cacheados sean suyos.
 su-exec www-data php artisan optimize --no-interaction
 
+# JSON de Swagger (/api/documentation) desde los atributos #[OA\...].
+su-exec www-data php artisan l5-swagger:generate --no-interaction
+
 # Migraciones idempotentes: DB puede tardar en levantar, reintentar.
 i=0
 until su-exec www-data php artisan migrate --force --no-interaction; do

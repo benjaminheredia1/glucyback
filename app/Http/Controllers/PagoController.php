@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class PagoController extends BaseCrudController
 {
@@ -50,6 +51,23 @@ class PagoController extends BaseCrudController
         return $datos;
     }
 
+    #[OA\Post(
+        path: '/pagos/{id}/confirmar',
+        tags: ['Pago'],
+        summary: 'Confirmar resultado de un pago pendiente',
+        description: 'Solo sobre pagos en estado pendiente.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(required: ['estado'], properties: [new OA\Property(property: 'estado', type: 'string', enum: ['pagado', 'fallido']), new OA\Property(property: 'referencia', type: 'string', maxLength: 255, nullable: true)])),
+        responses: [
+            new OA\Response(response: 200, description: 'Pago confirmado', content: new OA\JsonContent(ref: '#/components/schemas/Pago')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     public function confirmar(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);

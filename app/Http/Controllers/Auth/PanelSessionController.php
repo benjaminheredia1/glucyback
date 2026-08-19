@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use OpenApi\Attributes as OA;
 
 /**
  * Login local del panel de gestion (glucyfront): correo y contrasena.
@@ -20,6 +21,26 @@ class PanelSessionController extends Controller
     /** @var array<string> */
     private const ROLES_PANEL = [User::ROL_ADMIN, User::ROL_DOCTOR];
 
+    #[OA\Post(
+        path: '/auth/panel',
+        tags: ['Auth'],
+        summary: 'Login del panel de gestion (correo y contrasena)',
+        description: 'Solo cuentas admin o doctor. Limite: 5 por minuto.',
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(
+            required: ['email', 'password'],
+            properties: [
+                new OA\Property(property: 'email', type: 'string', format: 'email', maxLength: 255),
+                new OA\Property(property: 'password', type: 'string', format: 'password'),
+                new OA\Property(property: 'dispositivo', type: 'string', maxLength: 100),
+            ],
+        )),
+        responses: [
+            new OA\Response(response: 200, description: 'Sesion iniciada', content: new OA\JsonContent(ref: '#/components/schemas/SesionIniciada')),
+            new OA\Response(response: 401, description: 'Credenciales invalidas', content: new OA\JsonContent(ref: '#/components/schemas/Error')),
+            new OA\Response(response: 403, description: 'La cuenta no opera el panel', content: new OA\JsonContent(ref: '#/components/schemas/Error')),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     public function store(Request $request): JsonResponse
     {
         $datos = $request->validate([

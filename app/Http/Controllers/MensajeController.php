@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class MensajeController extends BaseCrudController
 {
@@ -59,6 +60,20 @@ class MensajeController extends BaseCrudController
         Chat::whereKey($registro->chatId)->update(['ultimoMensajeEn' => now()]);
     }
 
+    #[OA\Post(
+        path: '/mensajes/{id}/leido',
+        tags: ['Mensaje'],
+        summary: 'Marcar mensaje como leido',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Mensaje leido', content: new OA\JsonContent(ref: '#/components/schemas/Mensaje')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+
+        ],
+    )]
     public function marcarLeido(Request $request, int $id): JsonResponse
     {
         $this->autorizarLectura($request);

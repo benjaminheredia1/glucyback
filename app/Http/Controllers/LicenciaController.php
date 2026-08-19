@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use OpenApi\Attributes as OA;
 
 class LicenciaController extends BaseCrudController
 {
@@ -58,6 +59,21 @@ class LicenciaController extends BaseCrudController
         return $datos;
     }
 
+    #[OA\Post(
+        path: '/licencias/{id}/suspender',
+        tags: ['Licencia'],
+        summary: 'Suspender licencia',
+        description: 'Deja la licencia suspendida.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Licencia suspendida', content: new OA\JsonContent(ref: '#/components/schemas/Licencia')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+        ],
+    )]
     public function suspender(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);

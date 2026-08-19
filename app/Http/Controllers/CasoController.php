@@ -8,6 +8,7 @@ use App\Support\Alcance;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 /**
  * Bandeja del doctor. `abiertoEn` / `asignadoEn` / `cerradoEn` son la fuente del
@@ -67,6 +68,23 @@ class CasoController extends BaseCrudController
         return $datos;
     }
 
+    #[OA\Post(
+        path: '/casos/{id}/asignar',
+        tags: ['Caso'],
+        summary: 'Asignar caso a un doctor',
+        description: 'Si no se manda doctorId se asigna al doctor de la sesion. Falla si el caso esta cerrado.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(properties: [new OA\Property(property: 'doctorId', type: 'integer', nullable: true, description: 'Por defecto, el doctor autenticado')])),
+        responses: [
+            new OA\Response(response: 200, description: 'Caso asignado', content: new OA\JsonContent(ref: '#/components/schemas/Caso')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     public function asignar(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);
@@ -96,6 +114,21 @@ class CasoController extends BaseCrudController
         return response()->json($caso->fresh($this->with));
     }
 
+    #[OA\Post(
+        path: '/casos/{id}/cerrar',
+        tags: ['Caso'],
+        summary: 'Cerrar caso',
+        description: 'Falla si ya estaba cerrado.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Caso cerrado', content: new OA\JsonContent(ref: '#/components/schemas/Caso')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+        ],
+    )]
     public function cerrar(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);

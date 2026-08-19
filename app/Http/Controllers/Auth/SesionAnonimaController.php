@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 
 /**
  * Alta de un paciente anonimo.
@@ -24,6 +25,19 @@ use Illuminate\Support\Facades\DB;
  */
 class SesionAnonimaController extends Controller
 {
+    #[OA\Post(
+        path: '/auth/anonimo',
+        tags: ['Auth'],
+        summary: 'Crear paciente anonimo y obtener token',
+        description: 'Identidad temporal (usuario + paciente sin correo) para usar la API antes de registrarse. El token es la unica credencial; se reclama luego en POST /auth/auth0. Limite: 5 por minuto.',
+        requestBody: new OA\RequestBody(required: false, content: new OA\JsonContent(
+            properties: [new OA\Property(property: 'dispositivo', type: 'string', maxLength: 100)],
+        )),
+        responses: [
+            new OA\Response(response: 201, description: 'Paciente anonimo creado', content: new OA\JsonContent(ref: '#/components/schemas/SesionIniciada')),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     public function store(Request $request): JsonResponse
     {
         $datos = $request->validate([

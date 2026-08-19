@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\Alcance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class AlertaController extends BaseCrudController
 {
@@ -38,6 +39,21 @@ class AlertaController extends BaseCrudController
         ];
     }
 
+    #[OA\Post(
+        path: '/alertas/{id}/atender',
+        tags: ['Alerta'],
+        summary: 'Marcar alerta como atendida',
+        description: 'Registra quien la atendio (doctor de la sesion) y cuando. Falla si ya estaba atendida.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Alerta atendida', content: new OA\JsonContent(ref: '#/components/schemas/Alerta')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+        ],
+    )]
     public function atender(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);

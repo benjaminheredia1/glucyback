@@ -8,6 +8,7 @@ use App\Support\Alcance;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class DiagnosticoController extends BaseCrudController
 {
@@ -56,6 +57,21 @@ class DiagnosticoController extends BaseCrudController
         abort_if($registro->estaFirmado(), 409, 'Un diagnostico firmado no se puede eliminar.');
     }
 
+    #[OA\Post(
+        path: '/diagnosticos/{id}/firmar',
+        tags: ['Diagnostico'],
+        summary: 'Firmar diagnostico',
+        description: 'Lo firma el doctor de la sesion. Falla si ya esta firmado o si el doctor no corresponde.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Diagnostico firmado', content: new OA\JsonContent(ref: '#/components/schemas/Diagnostico')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+        ],
+    )]
     public function firmar(Request $request, int $id): JsonResponse
     {
         $this->autorizarEscritura($request);

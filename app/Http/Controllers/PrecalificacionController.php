@@ -10,6 +10,7 @@ use App\Support\SesionOpcional;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 
 class PrecalificacionController extends BaseCrudController
 {
@@ -46,6 +47,27 @@ class PrecalificacionController extends BaseCrudController
         return $datos;
     }
 
+    #[OA\Post(
+        path: '/precalificacion/evaluar',
+        tags: ['Precalificacion'],
+        summary: 'Evaluar el cuestionario de precalificacion (publico)',
+        description: 'Corre antes de crear la cuenta. Si se manda Bearer de paciente, la precalificacion queda ligada a el; si no, se puede ligar despues con POST /precalificaciones/{id}/vincular. Limite: 10 por minuto.',
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(
+            required: ['respuestas'],
+            properties: [
+                new OA\Property(property: 'pacienteId', type: 'integer', nullable: true),
+                new OA\Property(property: 'leadEmail', type: 'string', format: 'email', nullable: true),
+                new OA\Property(property: 'respuestas', type: 'array', minItems: 1, items: new OA\Items(required: ['preguntaId', 'respuesta'], properties: [
+                    new OA\Property(property: 'preguntaId', type: 'integer'),
+                    new OA\Property(property: 'respuesta', type: 'string', enum: ['si', 'no']),
+                ])),
+            ],
+        )),
+        responses: [
+            new OA\Response(response: 201, description: 'Precalificacion con resultado y respuestas', content: new OA\JsonContent(ref: '#/components/schemas/Precalificacion')),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     /**
      * Evalua el cuestionario completo y guarda veredicto + respuestas.
      *
@@ -138,6 +160,22 @@ class PrecalificacionController extends BaseCrudController
         return response()->json($precalificacion->load('respuestas.pregunta'), 201);
     }
 
+    #[OA\Post(
+        path: '/precalificaciones/{id}/vincular',
+        tags: ['Precalificacion'],
+        summary: 'Vincular una precalificacion al paciente autenticado',
+        description: 'El paciente reclama una precalificacion hecha antes de tener cuenta. Solo si aun no esta ligada a otro paciente.',
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(ref: '#/components/parameters/id')],
+        responses: [
+            new OA\Response(response: 200, description: 'Precalificacion vinculada', content: new OA\JsonContent(ref: '#/components/schemas/Precalificacion')),
+            new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 403, ref: '#/components/responses/NoAutorizado'),
+            new OA\Response(response: 404, ref: '#/components/responses/NoEncontrado'),
+            new OA\Response(response: 409, ref: '#/components/responses/Conflicto'),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     /**
      * Ata una precalificacion anonima al paciente que acaba de crear su cuenta.
      *

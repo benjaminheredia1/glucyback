@@ -6,6 +6,7 @@ use App\Models\PreguntaPrecalificacion;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class PreguntaPrecalificacionController extends BaseCrudController
 {
@@ -37,6 +38,21 @@ class PreguntaPrecalificacionController extends BaseCrudController
         ];
     }
 
+    #[OA\Get(
+        path: '/precalificacion/preguntas',
+        tags: ['Precalificacion'],
+        summary: 'Cuestionario publico del filtro clinico',
+        description: 'Preguntas activas ordenadas. No expone la respuesta de alarma ni el motivo: el veredicto lo calcula el backend. Limite: 30 por minuto.',
+        responses: [
+            new OA\Response(response: 200, description: 'Preguntas', content: new OA\JsonContent(type: 'array', items: new OA\Items(properties: [
+                new OA\Property(property: 'id', type: 'integer'),
+                new OA\Property(property: 'codigo', type: 'string'),
+                new OA\Property(property: 'texto', type: 'string'),
+                new OA\Property(property: 'orden', type: 'integer'),
+                new OA\Property(property: 'version', type: 'integer'),
+            ]))),
+        ],
+    )]
     /**
      * Cuestionario para el filtro clinico, que corre antes de crear la cuenta.
      * No expone `respuestaAlarma` ni `motivo`: el veredicto lo calcula el backend.

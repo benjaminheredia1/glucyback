@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 
 class SolicitudAccesoDoctorController extends BaseCrudController
 {
@@ -37,6 +38,26 @@ class SolicitudAccesoDoctorController extends BaseCrudController
         ];
     }
 
+    #[OA\Post(
+        path: '/acceso-doctor/solicitar',
+        tags: ['Solicitud Acceso Doctor'],
+        summary: 'Solicitar acceso como doctor (publico)',
+        description: 'Formulario de la landing. No crea usuario: deja la solicitud en estado pendiente hasta que un admin verifique la matricula. Limite: 5 por minuto.',
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/SolicitudAccesoDoctorCrear')),
+        responses: [
+            new OA\Response(response: 201, description: 'Solicitud registrada', content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'message', type: 'string'),
+                new OA\Property(property: 'id', type: 'integer'),
+                new OA\Property(property: 'estado', type: 'string'),
+            ])),
+            new OA\Response(response: 409, description: 'Ya hay una solicitud pendiente con ese correo o matricula', content: new OA\JsonContent(properties: [
+                new OA\Property(property: 'message', type: 'string'),
+                new OA\Property(property: 'id', type: 'integer'),
+                new OA\Property(property: 'estado', type: 'string'),
+            ])),
+            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
+        ],
+    )]
     /**
      * Alta publica del formulario "Solicitar acceso" de la landing.
      *

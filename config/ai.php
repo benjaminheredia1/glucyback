@@ -14,6 +14,21 @@ return [
     */
 
     'default' => 'openai',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validacion de estudios por IA (Glucy)
+    |--------------------------------------------------------------------------
+    |
+    | Con validar_estudios activo, POST /archivos/subir pasa el archivo del
+    | paciente por el agente ValidadorEstudios antes de guardarlo y aprueba
+    | los estudios detectados. Ver App\Support\ValidacionEstudiosIa.
+    |
+    */
+
+    'validar_estudios' => env('AI_VALIDA_ESTUDIOS', true),
+    'estudios_provider' => env('AI_ESTUDIOS_PROVIDER', 'openai'),
+    'estudios_model' => env('AI_ESTUDIOS_MODEL', 'gpt-5.6-terra'),
     'default_for_images' => 'gemini',
     'default_for_audio' => 'openai',
     'default_for_transcription' => 'openai',

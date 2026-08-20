@@ -6,6 +6,7 @@ use App\Models\Archivo;
 use App\Models\EstudioMedico;
 use App\Models\User;
 use App\Support\AlmacenArchivos;
+use App\Support\ValidacionEstudiosIa;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -80,8 +81,8 @@ class ArchivoController extends BaseCrudController
         responses: [
             new OA\Response(response: 201, description: 'Archivo guardado', content: new OA\JsonContent(ref: '#/components/schemas/Archivo')),
             new OA\Response(response: 200, description: 'Archivo identico ya existente', content: new OA\JsonContent(ref: '#/components/schemas/Archivo')),
+            new OA\Response(response: 422, description: 'Datos invalidos, o la IA determino que el archivo no es un estudio medico legible', content: new OA\JsonContent(ref: '#/components/schemas/ErrorValidacion')),
             new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
-            new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
         ],
     )]
     /**
@@ -97,6 +98,22 @@ class ArchivoController extends BaseCrudController
             'descripcion' => ['nullable', 'string', 'max:255'],
         ]);
 
+        // El archivo de un paciente pasa primero por la IA: si no es un
+        // estudio legible se rechaza sin guardar nada. Si la IA esta caida,
+        // `analizar()` devuelve null y la subida sigue el flujo manual.
+        $analisis = null;
+        $paciente = $usuario->paciente;
+
+        if (config('ai.validar_estudios') && $usuario->esPaciente() && $paciente !== null) {
+            $analisis = app(ValidacionEstudiosIa::class)->analizar($request->file('archivo'));
+
+            abort_if(
+                $analisis !== null && ! $analisis['esEstudioValido'],
+                422,
+                $analisis['motivo'] ?? 'El archivo no parece un estudio medico legible.'
+            );
+        }
+
         $archivo = $almacen->guardar(
             $request->file('archivo'),
             $usuario,
@@ -105,6 +122,10 @@ class ArchivoController extends BaseCrudController
         );
 
         $this->auditar($request, 'subir', $archivo, null, $archivo->toArray());
+
+        if ($analisis !== null) {
+            app(ValidacionEstudiosIa::class)->aprobar($archivo, $paciente, $analisis['estudiosDetectados']);
+        }
 
         return response()->json($archivo, $archivo->wasRecentlyCreated ? 201 : 200);
     }

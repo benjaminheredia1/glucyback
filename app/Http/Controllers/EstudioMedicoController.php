@@ -6,6 +6,7 @@ use App\Models\Archivo;
 use App\Models\EstudioMedico;
 use App\Models\User;
 use App\Support\Alcance;
+use App\Support\GeneracionPlanClinicoIa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -113,6 +114,11 @@ class EstudioMedicoController extends BaseCrudController
         ]);
 
         $this->auditar($request, 'validar', $estudio, $antes, $estudio->toArray());
+
+        if ($estudio->estado === 'aprobado' && $estudio->paciente !== null) {
+            // La aprobacion manual tambien puede completar los obligatorios.
+            app(GeneracionPlanClinicoIa::class)->generarSiCorresponde($estudio->paciente);
+        }
 
         return response()->json($estudio->fresh($this->with));
     }

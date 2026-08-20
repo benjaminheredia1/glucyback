@@ -129,6 +129,12 @@ class ValidacionEstudiosIa
             $aprobados[] = $estudio;
         }
 
+        if ($aprobados !== []) {
+            // Si con esto el paciente completo sus obligatorios, la IA deja
+            // lista la propuesta de diagnostico y tratamiento para el doctor.
+            app(GeneracionPlanClinicoIa::class)->generarSiCorresponde($paciente);
+        }
+
         return $aprobados;
     }
 

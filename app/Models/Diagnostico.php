@@ -21,6 +21,7 @@ class Diagnostico extends Model
         'diagnosticoAI',
         'diagnosticoDoctor',
         'estado',
+        'aceptadoDoctor',
         'firmadoEn',
         'version',
     ];
@@ -28,6 +29,7 @@ class Diagnostico extends Model
     protected function casts(): array
     {
         return [
+            'aceptadoDoctor' => 'boolean',
             'firmadoEn' => 'datetime',
             'version' => 'integer',
         ];

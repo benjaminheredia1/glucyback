@@ -29,6 +29,7 @@ return [
     'validar_estudios' => env('AI_VALIDA_ESTUDIOS', true),
     'estudios_provider' => env('AI_ESTUDIOS_PROVIDER', 'openai'),
     'estudios_model' => env('AI_ESTUDIOS_MODEL', 'gpt-5.6-terra'),
+    'generar_plan_clinico' => env('AI_GENERA_PLAN_CLINICO', true),
     'default_for_images' => 'gemini',
     'default_for_audio' => 'openai',
     'default_for_transcription' => 'openai',

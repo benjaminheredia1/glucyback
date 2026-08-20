@@ -37,6 +37,7 @@ class TratamientoController extends BaseCrudController
             'tratamientoDoctor' => ['nullable', 'string'],
             'notaDoctor' => ['nullable', 'string'],
             'estado' => ['sometimes', 'in:borrador,pendiente_firma'],
+            'aceptadoDoctor' => ['sometimes', 'boolean'],
         ];
     }
 

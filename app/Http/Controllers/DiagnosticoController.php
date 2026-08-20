@@ -35,6 +35,7 @@ class DiagnosticoController extends BaseCrudController
             'diagnosticoAI' => ['nullable', 'string'],
             'diagnosticoDoctor' => ['nullable', 'string'],
             'estado' => ['sometimes', 'in:borrador,pendiente_firma'],
+            'aceptadoDoctor' => ['sometimes', 'boolean'],
         ];
     }
 

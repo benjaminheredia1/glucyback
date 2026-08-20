@@ -24,6 +24,7 @@ class Tratamiento extends Model
         'tratamientoDoctor',
         'notaDoctor',
         'estado',
+        'aceptadoDoctor',
         'firmadoEn',
         'enviadoEn',
         'version',
@@ -33,6 +34,7 @@ class Tratamiento extends Model
     protected function casts(): array
     {
         return [
+            'aceptadoDoctor' => 'boolean',
             'firmadoEn' => 'datetime',
             'enviadoEn' => 'datetime',
             'version' => 'integer',

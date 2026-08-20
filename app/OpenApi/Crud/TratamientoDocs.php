@@ -21,6 +21,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'tratamientoDoctor', type: 'string', nullable: true),
         new OA\Property(property: 'notaDoctor', type: 'string', nullable: true),
         new OA\Property(property: 'estado', type: 'string', enum: ['borrador', 'pendiente_firma']),
+        new OA\Property(property: 'aceptadoDoctor', type: 'boolean'),
         new OA\Property(property: 'created_at', type: 'string', format: 'date-time', readOnly: true),
         new OA\Property(property: 'updated_at', type: 'string', format: 'date-time', readOnly: true),
     ],
@@ -39,6 +40,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'tratamientoDoctor', type: 'string', nullable: true),
         new OA\Property(property: 'notaDoctor', type: 'string', nullable: true),
         new OA\Property(property: 'estado', type: 'string', enum: ['borrador', 'pendiente_firma']),
+        new OA\Property(property: 'aceptadoDoctor', type: 'boolean'),
     ],
 )]
 #[OA\Schema(
@@ -54,6 +56,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'tratamientoDoctor', type: 'string', nullable: true),
         new OA\Property(property: 'notaDoctor', type: 'string', nullable: true),
         new OA\Property(property: 'estado', type: 'string', enum: ['borrador', 'pendiente_firma']),
+        new OA\Property(property: 'aceptadoDoctor', type: 'boolean'),
     ],
 )]
 final class TratamientoDocs

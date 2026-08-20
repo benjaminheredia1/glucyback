@@ -79,8 +79,18 @@ class ArchivoController extends BaseCrudController
             ],
         ))),
         responses: [
-            new OA\Response(response: 201, description: 'Archivo guardado', content: new OA\JsonContent(ref: '#/components/schemas/Archivo')),
-            new OA\Response(response: 200, description: 'Archivo identico ya existente', content: new OA\JsonContent(ref: '#/components/schemas/Archivo')),
+            new OA\Response(response: 201, description: 'Archivo guardado. `estudiosAprobados` trae los estudios que la IA detecto y aprobo al momento en este archivo (vacio si la IA no corrio o no detecto ninguno).', content: new OA\JsonContent(allOf: [
+                new OA\Schema(ref: '#/components/schemas/Archivo'),
+                new OA\Schema(properties: [
+                    new OA\Property(property: 'estudiosAprobados', type: 'array', items: new OA\Items(ref: '#/components/schemas/EstudioMedico')),
+                ]),
+            ])),
+            new OA\Response(response: 200, description: 'Archivo identico ya existente. Incluye `estudiosAprobados` igual que el 201.', content: new OA\JsonContent(allOf: [
+                new OA\Schema(ref: '#/components/schemas/Archivo'),
+                new OA\Schema(properties: [
+                    new OA\Property(property: 'estudiosAprobados', type: 'array', items: new OA\Items(ref: '#/components/schemas/EstudioMedico')),
+                ]),
+            ])),
             new OA\Response(response: 422, description: 'Datos invalidos, o la IA determino que el archivo no es un estudio medico legible', content: new OA\JsonContent(ref: '#/components/schemas/ErrorValidacion')),
             new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
         ],
@@ -123,11 +133,24 @@ class ArchivoController extends BaseCrudController
 
         $this->auditar($request, 'subir', $archivo, null, $archivo->toArray());
 
+        // La respuesta lleva el veredicto inmediato: `estudiosAprobados` son
+        // los estudios que la IA detecto y aprobo en este mismo archivo, para
+        // que el cliente no registre duplicados pendientes de esos tipos.
+        $aprobados = [];
+
         if ($analisis !== null) {
-            app(ValidacionEstudiosIa::class)->aprobar($archivo, $paciente, $analisis['estudiosDetectados']);
+            $aprobados = app(ValidacionEstudiosIa::class)->aprobar($archivo, $paciente, $analisis['estudiosDetectados']);
         }
 
-        return response()->json($archivo, $archivo->wasRecentlyCreated ? 201 : 200);
+        return response()->json(
+            $archivo->toArray() + [
+                'estudiosAprobados' => array_map(
+                    fn (EstudioMedico $estudio) => $estudio->load('tipoEstudio')->toArray(),
+                    $aprobados,
+                ),
+            ],
+            $archivo->wasRecentlyCreated ? 201 : 200,
+        );
     }
 
     #[OA\Get(

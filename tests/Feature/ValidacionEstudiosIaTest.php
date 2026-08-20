@@ -89,6 +89,13 @@ class ValidacionEstudiosIaTest extends TestCase
 
         $respuesta->assertCreated();
 
+        // El veredicto viaja en la misma respuesta: el cliente sabe al
+        // momento que tipos quedaron aprobados y no debe registrarlos como
+        // pendientes.
+        $respuesta->assertJsonCount(2, 'estudiosAprobados');
+        $respuesta->assertJsonPath('estudiosAprobados.0.estado', 'aprobado');
+        $respuesta->assertJsonPath('estudiosAprobados.0.tipo_estudio.nombre', 'Glucemia en ayunas');
+
         $this->assertSame(2, EstudioMedico::count());
 
         $estudio = EstudioMedico::where('tipoEstudioId', $this->glucemia->id)->first();
@@ -150,7 +157,10 @@ class ValidacionEstudiosIaTest extends TestCase
             throw new \RuntimeException('proveedor caido');
         });
 
-        $this->subir()->assertCreated();
+        $respuesta = $this->subir();
+
+        $respuesta->assertCreated();
+        $respuesta->assertJsonCount(0, 'estudiosAprobados');
 
         $this->assertSame(1, Archivo::count());
         $this->assertSame(0, EstudioMedico::count());

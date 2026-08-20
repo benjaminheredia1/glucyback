@@ -38,10 +38,19 @@ class PerfilController extends Controller
                 new OA\Property(property: 'sexo', type: 'string', enum: ['femenino', 'masculino', 'otro'], nullable: true),
                 new OA\Property(property: 'pesoKg', type: 'number', minimum: 1, maximum: 400, nullable: true),
                 new OA\Property(property: 'tallaCm', type: 'integer', minimum: 30, maximum: 260, nullable: true),
+                new OA\Property(
+                    property: 'medicacionActual',
+                    description: 'Reemplaza la lista completa de medicacion actual del paciente. Mandar [] para vaciarla; omitir el campo para no tocarla.',
+                    type: 'array',
+                    items: new OA\Items(properties: [
+                        new OA\Property(property: 'nombre', type: 'string', maxLength: 255),
+                        new OA\Property(property: 'cantidad', type: 'string', maxLength: 100, nullable: true),
+                    ], required: ['nombre'], type: 'object'),
+                ),
             ],
         )),
         responses: [
-            new OA\Response(response: 200, description: 'Usuario actualizado con doctor.clinica y paciente', content: new OA\JsonContent(type: 'object')),
+            new OA\Response(response: 200, description: 'Usuario actualizado con doctor.clinica y paciente (incluye paciente.medicacion_actual)', content: new OA\JsonContent(type: 'object')),
             new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
             new OA\Response(response: 422, ref: '#/components/responses/Validacion'),
         ],
@@ -61,12 +70,15 @@ class PerfilController extends Controller
             'sexo' => ['nullable', 'in:femenino,masculino,otro'],
             'pesoKg' => ['nullable', 'numeric', 'between:1,400'],
             'tallaCm' => ['nullable', 'integer', 'between:30,260'],
+            'medicacionActual' => ['sometimes', 'array', 'max:50'],
+            'medicacionActual.*.nombre' => ['required', 'string', 'max:255'],
+            'medicacionActual.*.cantidad' => ['nullable', 'string', 'max:100'],
         ]);
 
         $delUsuario = array_intersect_key($datos, array_flip(self::CAMPOS_USUARIO));
         $delPaciente = array_intersect_key($datos, array_flip(self::CAMPOS_PACIENTE));
 
-        DB::transaction(function () use ($request, $usuario, $delUsuario, $delPaciente) {
+        DB::transaction(function () use ($request, $usuario, $delUsuario, $delPaciente, $datos) {
             if ($delUsuario !== []) {
                 $antes = $usuario->toArray();
                 $usuario->update($delUsuario);
@@ -82,9 +94,29 @@ class PerfilController extends Controller
                 $paciente->update($delPaciente);
                 $this->auditar($request, $paciente, $antes, $paciente->toArray());
             }
+
+            // La medicacion actual se reemplaza completa: la pantalla manda
+            // la lista tal como quedo (mandar [] la vacia; omitir el campo
+            // la deja como esta).
+            if (array_key_exists('medicacionActual', $datos) && $paciente !== null) {
+                $antes = $paciente->medicacionActual()->get(['nombre', 'cantidad'])->toArray();
+
+                $paciente->medicacionActual()->delete();
+                $paciente->medicacionActual()->createMany(array_map(
+                    fn (array $m) => ['nombre' => $m['nombre'], 'cantidad' => $m['cantidad'] ?? null],
+                    $datos['medicacionActual'],
+                ));
+
+                $this->auditar(
+                    $request,
+                    $paciente,
+                    ['medicacionActual' => $antes],
+                    ['medicacionActual' => $paciente->medicacionActual()->get(['nombre', 'cantidad'])->toArray()],
+                );
+            }
         });
 
-        return response()->json($usuario->fresh()->load(['doctor.clinica', 'paciente']));
+        return response()->json($usuario->fresh()->load(['doctor.clinica', 'paciente.medicacionActual']));
     }
 
     /** Mismo formato que BaseCrudController::auditar(). */

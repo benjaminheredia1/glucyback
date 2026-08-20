@@ -66,6 +66,51 @@ class PerfilTest extends TestCase
         $this->assertSame('Solo Nombre', $fresco->name);
     }
 
+    public function test_guarda_y_reemplaza_la_medicacion_actual(): void
+    {
+        [$usuario, $paciente] = $this->crearPaciente();
+
+        $respuesta = $this->actingAs($usuario)->patchJson('/api/perfil', [
+            'medicacionActual' => [
+                ['nombre' => 'Metformina', 'cantidad' => '850 mg'],
+                ['nombre' => 'Enalapril'],
+            ],
+        ]);
+
+        $respuesta->assertOk()
+            ->assertJsonCount(2, 'paciente.medicacion_actual')
+            ->assertJsonPath('paciente.medicacion_actual.0.nombre', 'Metformina')
+            ->assertJsonPath('paciente.medicacion_actual.0.cantidad', '850 mg')
+            ->assertJsonPath('paciente.medicacion_actual.1.cantidad', null);
+
+        // La lista se reemplaza completa, no se acumula.
+        $this->actingAs($usuario)->patchJson('/api/perfil', [
+            'medicacionActual' => [['nombre' => 'Insulina glargina', 'cantidad' => '10 UI']],
+        ])->assertOk()->assertJsonCount(1, 'paciente.medicacion_actual');
+
+        $this->assertSame(
+            ['Insulina glargina'],
+            $paciente->medicacionActual()->pluck('nombre')->all(),
+        );
+
+        // Mandar [] la vacia; omitir el campo la deja intacta.
+        $this->actingAs($usuario)->patchJson('/api/perfil', ['medicacionActual' => []])
+            ->assertOk()->assertJsonCount(0, 'paciente.medicacion_actual');
+
+        $this->actingAs($usuario)->patchJson('/api/perfil', ['name' => 'Sin tocar medicacion'])
+            ->assertOk();
+        $this->assertSame(0, $paciente->medicacionActual()->count());
+    }
+
+    public function test_medicacion_sin_nombre_es_422(): void
+    {
+        [$usuario] = $this->crearPaciente();
+
+        $this->actingAs($usuario)->patchJson('/api/perfil', [
+            'medicacionActual' => [['cantidad' => '850 mg']],
+        ])->assertStatus(422);
+    }
+
     public function test_valida_los_limites_clinicos(): void
     {
         [$usuario] = $this->crearPaciente();

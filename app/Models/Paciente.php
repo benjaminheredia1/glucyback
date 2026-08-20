@@ -112,6 +112,12 @@ class Paciente extends Model
         return $this->hasMany(Alerta::class, 'pacienteId');
     }
 
+    /** Medicacion actual declarada en el perfil (nombre y cantidad libres). */
+    public function medicacionActual(): HasMany
+    {
+        return $this->hasMany(medicamntos_antiguos::class, 'paciente_id');
+    }
+
     public function diagnosticos(): HasMany
     {
         return $this->hasMany(Diagnostico::class, 'pacienteId');

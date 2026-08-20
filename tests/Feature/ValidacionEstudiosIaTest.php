@@ -205,18 +205,18 @@ class ValidacionEstudiosIaTest extends TestCase
         $this->assertSame(0, EstudioMedico::count());
     }
 
-    public function test_si_la_ia_falla_la_subida_sigue_el_flujo_manual(): void
+    public function test_si_la_ia_falla_la_subida_es_503_y_no_se_guarda_nada(): void
     {
         ValidadorEstudios::fake(function (): void {
             throw new \RuntimeException('proveedor caido');
         });
 
+        // Los estudios no tienen revision humana: sin IA no hay subida, el
+        // paciente reintenta. Nunca queda un estudio esperando a un doctor.
         $respuesta = $this->subir();
 
-        $respuesta->assertCreated();
-        $respuesta->assertJsonCount(0, 'estudiosAprobados');
-
-        $this->assertSame(1, Archivo::count());
+        $respuesta->assertStatus(503);
+        $this->assertSame(0, Archivo::count());
         $this->assertSame(0, EstudioMedico::count());
     }
 

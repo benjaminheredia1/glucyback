@@ -93,6 +93,7 @@ class ArchivoController extends BaseCrudController
             ])),
             new OA\Response(response: 422, description: 'Datos invalidos, o la IA determino que el archivo no es un estudio medico legible', content: new OA\JsonContent(ref: '#/components/schemas/ErrorValidacion')),
             new OA\Response(response: 401, ref: '#/components/responses/NoAutenticado'),
+            new OA\Response(response: 503, description: 'La validacion automatica por IA no esta disponible; reintentar en unos minutos', content: new OA\JsonContent(ref: '#/components/schemas/Error')),
         ],
     )]
     /**
@@ -108,9 +109,10 @@ class ArchivoController extends BaseCrudController
             'descripcion' => ['nullable', 'string', 'max:255'],
         ]);
 
-        // El archivo de un paciente pasa primero por la IA: si no es un
-        // estudio legible se rechaza sin guardar nada. Si la IA esta caida,
-        // `analizar()` devuelve null y la subida sigue el flujo manual.
+        // El archivo de un paciente pasa primero por la IA, que decide a que
+        // tipo de estudio corresponde y si es valido: no hay revision humana
+        // de estudios. Si la IA no puede analizar (proveedor caido, sin API
+        // key), la subida falla con 503 en vez de dejar el estudio pendiente.
         $analisis = null;
         $paciente = $usuario->paciente;
 
@@ -118,7 +120,13 @@ class ArchivoController extends BaseCrudController
             $analisis = app(ValidacionEstudiosIa::class)->analizar($request->file('archivo'));
 
             abort_if(
-                $analisis !== null && ! $analisis['esEstudioValido'],
+                $analisis === null,
+                503,
+                'La validacion automatica de estudios no esta disponible en este momento. Intenta de nuevo en unos minutos.'
+            );
+
+            abort_if(
+                ! $analisis['esEstudioValido'],
                 422,
                 $analisis['motivo'] ?? 'El archivo no parece un estudio medico legible.'
             );

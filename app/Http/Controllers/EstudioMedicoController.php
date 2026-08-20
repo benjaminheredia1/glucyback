@@ -47,6 +47,29 @@ class EstudioMedicoController extends BaseCrudController
     }
 
     /**
+     * La app registra el estudio despues de POST /archivos/subir. Si la IA ya
+     * aprobo ese tipo con ese mismo archivo, no se abre otra revision: se
+     * devuelve el estudio aprobado tal cual. La unica aprobacion humana del
+     * flujo es la del tratamiento (aceptadoDoctor).
+     */
+    public function crear(Request $request): JsonResponse
+    {
+        if ($request->filled('archivoId') && $request->filled('tipoEstudioId')) {
+            $aprobado = $this->consulta($request)
+                ->where('tipoEstudioId', $request->input('tipoEstudioId'))
+                ->where('archivoId', $request->input('archivoId'))
+                ->where('estado', 'aprobado')
+                ->first();
+
+            if ($aprobado !== null) {
+                return response()->json($aprobado, 200);
+            }
+        }
+
+        return parent::crear($request);
+    }
+
+    /**
      * Un estudio rechazado se vuelve a subir como intento siguiente. El estado y
      * el motivo los fija el doctor en `validar()`, nunca el paciente.
      */

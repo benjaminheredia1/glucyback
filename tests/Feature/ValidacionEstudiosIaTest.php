@@ -134,6 +134,35 @@ class ValidacionEstudiosIaTest extends TestCase
         $this->assertSame('aprobado', $pendiente->fresh()->estado);
     }
 
+    public function test_registrar_el_estudio_tras_la_subida_no_reabre_la_revision(): void
+    {
+        ValidadorEstudios::fake([
+            json_encode([
+                'esEstudioValido' => true,
+                'motivo' => null,
+                'estudiosDetectados' => [
+                    ['tipoEstudio' => 'Glucemia en ayunas', 'valor' => 92, 'unidad' => 'mg/dL', 'fecha' => '2026-08-01'],
+                ],
+            ]),
+        ]);
+
+        $this->subir()->assertCreated();
+        $archivo = Archivo::sole();
+
+        // La app registra el estudio despues de subir: debe recibir el ya
+        // aprobado por la IA, no una fila nueva en revision.
+        $respuesta = $this->actingAs($this->usuario)->postJson('/api/estudios-medicos', [
+            'tipoEstudioId' => $this->glucemia->id,
+            'archivoId' => $archivo->id,
+            'fecha' => '2026-08-01',
+        ]);
+
+        $respuesta->assertOk();
+        $respuesta->assertJsonPath('estado', 'aprobado');
+
+        $this->assertSame(1, EstudioMedico::count());
+    }
+
     public function test_archivo_invalido_es_422_y_no_se_guarda_nada(): void
     {
         ValidadorEstudios::fake([

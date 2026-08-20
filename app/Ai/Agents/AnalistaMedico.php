@@ -2,46 +2,43 @@
 
 namespace App\Ai\Agents;
 
-use Exception;
+use App\Models\medicamntos_antiguos;
+use App\Models\Paciente;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\Conversational;
+use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Messages\Message;
 use Laravel\Ai\Promptable;
 use Stringable;
-use App\Models\Paciente;
-use App\Models\medicamntos_antiguos;
 
-class AnalistaMedico implements Agent, Conversational, HasTools
+class AnalistaMedico implements Agent, Conversational, HasStructuredOutput, HasTools
 {
     use Promptable;
 
     /**
      * Get the instructions that the agent should follow.
      */
-    public function __construct(public Paciente $paciente)
-    {
-    }
+    public function __construct(public Paciente $paciente) {}
 
-    public function instructions(int $usuario_id): Stringable|string
+    public function instructions(): Stringable|string
     {
-        $paciente_lda = $this->paciente->where('id', $usuario_id)->first();
-        if(empty($paciente_lda)) {
-            throw new Exception("Paciente no encontrado");
-        }
-        $medicamentosActuales = medicamntos_antiguos::obtenerMedicamentosAntiguos($usuario_id);
+        // String "Nombre A, Nombre B" con la medicacion previa del paciente.
+        $medicamentosAntiguos = medicamntos_antiguos::obtenerMedicamentosAntiguos($this->paciente->id);
+
         return view('prompts.analistamedico', [
-            'edad' => $paciente_lda->fechaNacimiento->age,
-            'datosBasales' => $paciente_lda->only([
-                'peso', 'talla', 'imc', 'presionArterial',
-                'aniosConDiabetes', 'medicacionActual',
+            'edad' => $this->paciente->fechaNacimiento->age,
+            'datosBasales' => $this->paciente->only([
+                'peso', 'talla', 'imc', 'presionArterial', 'aniosConDiabetes',
             ]),
-            'perfilLada' => $paciente_lda->sospechaLada, 
+            'medicamentosAntiguos' => $medicamentosAntiguos,
+            'perfilLada' => $this->paciente->sospechaLada,
         ])->render();
     }
 
-     public function schema(JsonSchema $schema): array
+    public function schema(JsonSchema $schema): array
     {
         return [
             'estudiosDetectados' => $schema->array()->items(
@@ -78,5 +75,4 @@ class AnalistaMedico implements Agent, Conversational, HasTools
     {
         return [];
     }
-
 }

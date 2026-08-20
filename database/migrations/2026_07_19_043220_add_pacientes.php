@@ -21,13 +21,6 @@ return new class extends Migration
             $table->string('alergias')->nullable();
             $table->string('contactoEmergencia')->nullable();
             $table->timestamps();
-            $table->string('peso')->nullable();
-            $table->string('talla')->nullable();
-            $table->string('telefono')->nullable();
-            $table->string('imc')->nullable();
-            $table->string('aniosConDiabetes')->nullable();
-            $table->string('presionArterial')->nullable();
-            $table->softDeletes();
         });
     }
 

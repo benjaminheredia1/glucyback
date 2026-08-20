@@ -77,7 +77,17 @@ class Auth0SessionController extends Controller
             'Auth0 no entrego un correo para esta cuenta.'
         );
 
-        $usuario = DB::transaction(fn () => $this->resolverUsuario($request, $perfil, $anonimo));
+        $usuario = DB::transaction(function () use ($request, $perfil, $anonimo) {
+            $usuario = $this->resolverUsuario($request, $perfil, $anonimo);
+
+            // Una cuenta vieja (creada por el panel o anterior a que el alta
+            // creara la fila) puede entrar por porSub/porEmail sin fila de
+            // pacientes: sin esto, toda la API le responderia 422 "El usuario
+            // no tiene perfil de paciente".
+            Paciente::asegurarPara($usuario);
+
+            return $usuario;
+        });
 
         $nombreToken = $datos['dispositivo'] ?? 'api';
 

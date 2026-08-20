@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Paciente;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -37,5 +39,20 @@ class UsuarioController extends BaseCrudController
                 : ['sometimes', 'confirmed', Password::defaults()],
             'rol' => [$req, 'in:admin,doctor,paciente'],
         ];
+    }
+
+    // Toda cuenta con rol paciente necesita su fila en pacientes (vease
+    // Paciente::asegurarPara): el alta o un cambio de rol desde el panel
+    // tambien la garantizan.
+    protected function despuesDeCrear(Request $request, Model $registro): void
+    {
+        assert($registro instanceof User);
+        Paciente::asegurarPara($registro);
+    }
+
+    protected function despuesDeActualizar(Request $request, Model $registro): void
+    {
+        assert($registro instanceof User);
+        Paciente::asegurarPara($registro);
     }
 }

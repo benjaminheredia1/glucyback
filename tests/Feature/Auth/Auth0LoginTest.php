@@ -145,6 +145,45 @@ class Auth0LoginTest extends TestCase
         ]);
     }
 
+    public function test_una_cuenta_paciente_vieja_sin_fila_de_pacientes_la_gana_al_iniciar_sesion(): void
+    {
+        // Cuenta creada por el panel (POST /usuarios) antes del hook, o
+        // anterior a que el alta creara la fila: rol paciente pero sin fila en
+        // pacientes. Sin el fix, toda la API le respondia 422 "El usuario no
+        // tiene perfil de paciente".
+        $vieja = User::factory()->create([
+            'email' => 'veterana@ejemplo.com',
+            'rol' => User::ROL_PACIENTE,
+            'auth0Sub' => null,
+        ]);
+        $this->assertDatabaseMissing('pacientes', ['usuarioId' => $vieja->id]);
+
+        $this->fingirPerfil(new PerfilAuth0('auth0|veterana', 'veterana@ejemplo.com', true, 'Veterana'));
+
+        $this->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])
+            ->assertOk()
+            ->assertJsonPath('usuario.id', $vieja->id);
+
+        $this->assertDatabaseHas('pacientes', ['usuarioId' => $vieja->id, 'deleted_at' => null]);
+    }
+
+    public function test_una_fila_de_paciente_soft_deleted_se_restaura_al_iniciar_sesion(): void
+    {
+        $usuario = User::factory()->conAuth0('auth0|renacida')->create([
+            'email' => 'renacida@ejemplo.com',
+            'rol' => User::ROL_PACIENTE,
+        ]);
+        Paciente::create(['usuarioId' => $usuario->id, 'tipoDiabetes' => 'DM2'])->delete();
+
+        $this->fingirPerfil(new PerfilAuth0('auth0|renacida', 'renacida@ejemplo.com', true, 'Renacida'));
+
+        $this->postJson('/api/auth/auth0', ['accessToken' => 'da-igual'])->assertOk();
+
+        // Se restaura la misma fila (con sus datos clinicos), no se crea otra.
+        $this->assertSame(1, Paciente::withTrashed()->where('usuarioId', $usuario->id)->count());
+        $this->assertSame('DM2', Paciente::where('usuarioId', $usuario->id)->sole()->tipoDiabetes);
+    }
+
     public function test_normaliza_el_correo_de_auth0_para_vincular_una_cuenta_existente(): void
     {
         $existente = User::factory()->create([

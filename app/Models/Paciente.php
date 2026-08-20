@@ -40,6 +40,28 @@ class Paciente extends Model
         ];
     }
 
+    /**
+     * Garantiza la fila de pacientes de una cuenta con rol paciente: sin ella
+     * Alcance::pacienteId() devuelve null y la API responde 422 "El usuario no
+     * tiene perfil de paciente". Las altas nuevas (anonimo, Auth0, panel) la
+     * crean, pero una cuenta vieja puede no tenerla; si estaba soft-deleted se
+     * restaura y los datos clinicos que cuelgan de ella se conservan.
+     */
+    public static function asegurarPara(User $usuario): void
+    {
+        if (! $usuario->esPaciente()) {
+            return;
+        }
+
+        $paciente = self::withTrashed()->where('usuarioId', $usuario->id)->first();
+
+        if ($paciente === null) {
+            self::create(['usuarioId' => $usuario->id]);
+        } elseif ($paciente->trashed()) {
+            $paciente->restore();
+        }
+    }
+
     public function usuario(): BelongsTo
     {
         return $this->belongsTo(User::class, 'usuarioId');

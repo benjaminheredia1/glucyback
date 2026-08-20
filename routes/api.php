@@ -46,6 +46,9 @@ use App\Http\Controllers\UsuarioController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+
+
+Route::post("/prueba", [LaboratorioController::class, "prueba"]);
 /**
  * Registra las cinco operaciones CRUD de una entidad.
  */

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Laboratorio;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Ai\Agents\AnalistaMedico;
+use Laravel\Ai\Enums\Lab;
 
 class LaboratorioController extends BaseCrudController
 {
@@ -16,6 +18,14 @@ class LaboratorioController extends BaseCrudController
 
     protected array $ordenables = ['id', 'nombre'];
 
+    public function prueba(Request $request)
+    {
+        $data = $request->validate([
+            "mensaje" => ["required", "string"],
+        ]);
+        $response = (new AnalistaMedico())->prompt($data['mensaje'], provider: Lab::OpenAI, model: 'gpt-5.6-terra', timeout: 120);
+        return response()->json(['message' => 'Prueba exitosa', 'data' => $response]);
+        }
     protected function reglas(Request $request, bool $creando): array
     {
         $req = $creando ? 'required' : 'sometimes';

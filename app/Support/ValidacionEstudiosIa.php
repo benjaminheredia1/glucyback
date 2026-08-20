@@ -10,6 +10,8 @@ use App\Models\Paciente;
 use App\Models\TipoEstudio;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Laravel\Ai\Files\Document;
 use Laravel\Ai\Files\Image;
 use Throwable;
@@ -54,11 +56,25 @@ class ValidacionEstudiosIa
                 return null;
             }
 
-            return [
+            $analisis = [
                 'esEstudioValido' => (bool) $datos['esEstudioValido'],
                 'motivo' => $datos['motivo'] ?? null,
                 'estudiosDetectados' => is_array($datos['estudiosDetectados'] ?? null) ? $datos['estudiosDetectados'] : [],
             ];
+
+            // Para diagnosticar en produccion los archivos reales que la IA
+            // acepta pero de los que no detecta ningun tipo del catalogo.
+            Log::info('ia.validacion_estudios', [
+                'archivo' => $subido->getClientOriginalName(),
+                'esEstudioValido' => $analisis['esEstudioValido'],
+                'motivo' => $analisis['motivo'],
+                'detectados' => array_map(
+                    fn ($d) => is_array($d) ? ($d['tipoEstudio'] ?? '?') : '?',
+                    $analisis['estudiosDetectados'],
+                ),
+            ]);
+
+            return $analisis;
         } catch (Throwable $e) {
             report($e);
 
@@ -76,12 +92,17 @@ class ValidacionEstudiosIa
      */
     public function aprobar(Archivo $archivo, Paciente $paciente, array $detectados): array
     {
-        $tipos = TipoEstudio::all()->keyBy(fn (TipoEstudio $t) => mb_strtolower($t->nombre));
+        // Matching tolerante: el modelo a veces devuelve el nombre sin
+        // acentos o con otra capitalizacion ("Perfil lipidico"): eso no puede
+        // costar la aprobacion.
+        $normalizar = fn (string $nombre) => Str::ascii(mb_strtolower(trim($nombre)));
+
+        $tipos = TipoEstudio::all()->keyBy(fn (TipoEstudio $t) => $normalizar($t->nombre));
 
         $aprobados = [];
 
         foreach ($detectados as $detectado) {
-            $tipo = $tipos->get(mb_strtolower((string) ($detectado['tipoEstudio'] ?? '')));
+            $tipo = $tipos->get($normalizar((string) ($detectado['tipoEstudio'] ?? '')));
 
             if ($tipo === null || ! is_numeric($detectado['valor'] ?? null)) {
                 continue;

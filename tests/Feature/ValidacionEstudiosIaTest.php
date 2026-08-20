@@ -163,6 +163,31 @@ class ValidacionEstudiosIaTest extends TestCase
         $this->assertSame(1, EstudioMedico::count());
     }
 
+    public function test_el_nombre_detectado_matchea_aunque_venga_sin_acentos_o_con_otra_capitalizacion(): void
+    {
+        $lipidico = TipoEstudio::create([
+            'nombre' => 'Perfil lipídico', 'unidad' => 'mg/dL',
+            'rangoMax' => 200, 'esObligatorio' => true, 'orden' => 5,
+        ]);
+
+        ValidadorEstudios::fake([
+            json_encode([
+                'esEstudioValido' => true,
+                'motivo' => null,
+                'estudiosDetectados' => [
+                    // Sin acento y con otra capitalizacion: aun asi aprueba.
+                    ['tipoEstudio' => 'perfil LIPIDICO ', 'valor' => 180, 'unidad' => 'mg/dL', 'fecha' => null],
+                ],
+            ]),
+        ]);
+
+        $this->subir()->assertCreated();
+
+        $estudio = EstudioMedico::sole();
+        $this->assertSame($lipidico->id, $estudio->tipoEstudioId);
+        $this->assertSame('aprobado', $estudio->estado);
+    }
+
     public function test_archivo_invalido_es_422_y_no_se_guarda_nada(): void
     {
         ValidadorEstudios::fake([

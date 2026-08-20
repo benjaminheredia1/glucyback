@@ -9,6 +9,7 @@ protocolo de elegibilidad v1.0, y clasificarlo en VERDE, AMARILLO o ROJO.
 - Presión arterial: {{ $datosBasales['presionArterial'] }}
 - Años con diabetes: {{ $datosBasales['aniosConDiabetes'] }}
 - Medicación actual: {{ $datosBasales['medicacionActual'] ?? 'ninguna registrada' }}
+- Medicación previa: {{ $medicamentosAntiguos !== '' ? $medicamentosAntiguos : 'ninguna registrada' }}
 @if($perfilLada)
 - ⚠️ ALERTA: este paciente cumple perfil sospechoso de LADA (edad diagnóstico < 30,
   IMC < 23, pérdida de peso marcada). El péptido C es OBLIGATORIO para continuar.

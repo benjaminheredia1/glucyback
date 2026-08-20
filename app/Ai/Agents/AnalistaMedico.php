@@ -29,7 +29,8 @@ class AnalistaMedico implements Agent, Conversational, HasStructuredOutput, HasT
         $medicamentosAntiguos = medicamntos_antiguos::obtenerMedicamentosAntiguos($this->paciente->id);
 
         return view('prompts.analistamedico', [
-            'edad' => $this->paciente->fechaNacimiento->age,
+            // Un paciente anonimo del embudo puede no tener fecha todavia.
+            'edad' => $this->paciente->fechaNacimiento?->age ?? 'desconocida',
             'datosBasales' => $this->paciente->only([
                 'peso', 'talla', 'imc', 'presionArterial', 'aniosConDiabetes',
             ]),
